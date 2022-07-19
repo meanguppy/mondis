@@ -1,13 +1,25 @@
-import type { Types } from 'mongoose';
+import { Types } from 'mongoose';
 import get from 'lodash.get';
-import type { MongoosePopulation } from './CachedQuery';
+import type { MongoosePopulations } from './CachedQuery';
 
-type MaybeHasId = { _id?: Types.ObjectId };
+const { ObjectId } = Types;
+type HasObjectId = { _id: Types.ObjectId };
+
+function hasObjectId(target: unknown): target is HasObjectId {
+  return (
+    !!target
+    && typeof target === 'object'
+    && (target as { _id?: unknown })._id instanceof ObjectId
+  );
+}
 /**
  * Extract all ObjectIds of documents based on the
  * mongoose population config. Embedded documents not included
  */
-export function collectPopulatedIds(docs: MaybeHasId[], populations?: MongoosePopulation) {
+export function collectPopulatedIds(
+  docs: Partial<HasObjectId>[],
+  populations?: MongoosePopulations,
+) {
   const initial = docs.filter((doc) => !!doc._id).map((doc) => String(doc._id));
   if (!populations?.length) return initial;
   const result = new Set(initial);
@@ -17,13 +29,13 @@ export function collectPopulatedIds(docs: MaybeHasId[], populations?: MongoosePo
       const inner: unknown = get(doc, path);
       if (!inner || typeof inner !== 'object') return;
 
-      const items: MaybeHasId[] = Array.isArray(inner) ? inner : [inner];
-      items.forEach((innerDoc) => {
-        if (!innerDoc || typeof innerDoc !== 'object' || !innerDoc._id) return;
+      const items: unknown[] = Array.isArray(inner) ? inner : [inner];
+      items.forEach((innerVal) => {
+        if (!hasObjectId(innerVal)) return;
         if (innerPopulate) {
-          collectPopulatedIds([innerDoc], innerPopulate).forEach((id) => result.add(id));
+          collectPopulatedIds([innerVal], innerPopulate).forEach((id) => result.add(id));
         } else {
-          result.add(String(innerDoc._id));
+          result.add(String(innerVal._id));
         }
       });
     });
