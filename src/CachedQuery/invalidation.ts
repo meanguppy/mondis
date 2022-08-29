@@ -1,5 +1,5 @@
 import type Mondis from 'src';
-import type CachedQuery from '../cacheables/CachedQuery';
+import type CachedQuery from '.';
 
 type InsertInvalidation =
   | { key: string }

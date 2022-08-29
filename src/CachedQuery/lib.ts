@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import get from 'lodash.get';
-import type { MongoosePopulations } from './CachedQuery';
+import type { MongoosePopulations } from '.';
 
 const { ObjectId } = Types;
 type HasObjectId = { _id: Types.ObjectId };
