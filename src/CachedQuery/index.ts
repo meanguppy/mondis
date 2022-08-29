@@ -1,6 +1,6 @@
 import type { FilterQuery, PopulateOptions, SortOrder } from 'mongoose';
 import * as crypto from 'crypto';
-import type Mondis from '..';
+import type Mondis from '../mondis';
 import { collectPopulatedIds, skipAndLimit } from './lib';
 
 export type QueryResult<T> =

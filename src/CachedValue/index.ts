@@ -1,5 +1,5 @@
 import AbstractCacheable from './AbstractCacheable';
-import type Mondis from '..';
+import type Mondis from '../mondis';
 
 type CachedValueConfig<T> = {
   name: string;
@@ -33,7 +33,8 @@ class CachedValue<T> extends AbstractCacheable<T, unknown[]> {
     return this.userFetchData(params);
   }
 
-  async fetchCache(key: string, params: unknown[]) {
+  // async fetchCache(key: string, params: unknown[]) {
+  async fetchCache(key: string) {
     const { redis } = this.context.clients;
     let json;
     try {
@@ -44,7 +45,8 @@ class CachedValue<T> extends AbstractCacheable<T, unknown[]> {
     return json ? (JSON.parse(json) as T | null) : undefined;
   }
 
-  async updateCache(key: string, data: T | null, params: unknown[]) {
+  // async updateCache(key: string, data: T | null, params: unknown[]) {
+  async updateCache(key: string, data: T | null) {
     const { redis } = this.context.clients;
     try {
       const json = JSON.stringify(data);

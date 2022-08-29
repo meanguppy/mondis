@@ -1,4 +1,4 @@
-import type Mondis from 'src';
+import type Mondis from '../mondis';
 import type CachedQuery from '.';
 
 type InsertInvalidation =
