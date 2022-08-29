@@ -6,20 +6,21 @@ import { collectPopulatedIds, skipAndLimit } from './lib';
 export type QueryResult<T> =
   ReturnType<CachedQuery<T>['execMongo']> extends Promise<infer V> ? V : never;
 
-// TODO: clean up `object` here?
-export type MongooseProjection = { [key: string]: 0 | 1 | object };
+// TODO: consider more strict definition, future features may bar complex selects.
+export type MongooseProjection = Record<string, unknown>;
 
 export type MongoosePopulations = Array<{
   [P in keyof PopulateOptions]: P extends 'populate'
     ? MongoosePopulations
-    : PopulateOptions[P]
+    : PopulateOptions[P];
 }>;
 
 export type MongooseSortConfig = string | { [key: string]: SortOrder };
 
-type ConfigInput<T> = {
+type ConfigInput = {
   model: string;
-  query: FilterQuery<T> | ((...params: unknown[]) => FilterQuery<T>);
+  // TODO: decide if FilterQuery is a good definition for this.
+  query: FilterQuery<unknown> | ((...params: unknown[]) => FilterQuery<unknown>);
   select?: MongooseProjection;
   populate?: MongoosePopulations;
   sort?: MongooseSortConfig | null;
@@ -30,26 +31,26 @@ type ConfigInput<T> = {
   rehydrate?: boolean;
 };
 
-type Config<T> = Required<ConfigInput<T>>;
+type Config = Required<ConfigInput>;
 
 type QueryExecOpts<T> = {
-  params?: unknown[],
-  limit?: number,
-  skip?: number,
-  filter?: (doc: T) => boolean,
-  skipCache?: boolean
+  params?: unknown[];
+  limit?: number;
+  skip?: number;
+  filter?: (doc: T) => boolean;
+  skipCache?: boolean;
 };
 
 type InputExecOpts<T> = unknown[] | QueryExecOpts<T>;
 
-class CachedQuery<T> implements Config<T> {
+class CachedQuery<T> implements Config {
   context: Mondis;
 
   private _hash?: string;
 
   model: string;
 
-  query: FilterQuery<T> | ((...params: unknown[]) => FilterQuery<T>);
+  query: FilterQuery<unknown> | ((...params: unknown[]) => FilterQuery<unknown>);
 
   select: MongooseProjection;
 
@@ -67,7 +68,7 @@ class CachedQuery<T> implements Config<T> {
 
   rehydrate: boolean;
 
-  constructor(context: Mondis, config: ConfigInput<T>) {
+  constructor(context: Mondis, config: ConfigInput) {
     this.context = context;
     const {
       model,
@@ -123,9 +124,7 @@ class CachedQuery<T> implements Config<T> {
       if (limit && limit !== Infinity) q.limit(limit);
     }
     if (select) q.select(select);
-    populate.forEach((pop) => {
-      q.populate(pop);
-    });
+    if (populate.length) q.populate(populate);
     return q;
   }
 
@@ -142,7 +141,7 @@ class CachedQuery<T> implements Config<T> {
     return q.countDocuments();
   }
 
-  private async getFullJson(opts?: InputExecOpts<T>) {
+  private async fetchFullJson(opts?: InputExecOpts<T>) {
     const { redis } = this.context.clients;
     opts = this.parseOpts(opts);
     const {
@@ -210,8 +209,7 @@ class CachedQuery<T> implements Config<T> {
   async exec(opts?: InputExecOpts<T>) {
     opts = this.parseOpts(opts);
     const { filter, skip, limit } = opts;
-    const { hasAll, json } = await this.getFullJson(opts);
-    // TODO: investigate the type T and cast here...
+    const { hasAll, json } = await this.fetchFullJson(opts);
     let result = JSON.parse(json) as Array<T>;
 
     /* hasAll=false means this exec's skip/limit lies outside of the cacheCount,
@@ -295,7 +293,7 @@ class CachedQuery<T> implements Config<T> {
       const { _hash, ...config } = this;
       const queryFunc = config.query;
       if (typeof queryFunc === 'function') {
-        const params = Array(queryFunc.length).fill(null).map((v, i) => `_$CQP${i}$_`);
+        const params = Array(queryFunc.length).fill(null).map((_v, i) => `$CQP${i}$`);
         config.query = queryFunc(...params);
       }
       const json = JSON.stringify(config);

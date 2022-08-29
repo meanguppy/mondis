@@ -1,4 +1,4 @@
-import type { Redis, ClientContext } from 'ioredis';
+import type { Redis } from 'ioredis';
 import type { Mongoose } from 'mongoose';
 
 class Mondis {

@@ -83,7 +83,7 @@ export function getInsertInvalidation<T extends Record<string, unknown>>(
   // If any field in the document contradicts the query, no need to invalidate
   if (someMismatchExists) return null;
   if (complexQuery) {
-    // If any configurable part of the query is not just string-comparison,
+    // If any configurable part of the query is not just an equality check,
     // we have to invalidate all queries, because we don't know if it has changed.
     return { set: cq.getCacheKeyForAll() };
   }
@@ -138,7 +138,6 @@ export async function invalidate(
   if (!keys.length) return;
 
   const { redis } = ctx.clients;
-
   const multi = redis.multi();
   keys.forEach((key) => multi.call('delquery', key));
   const results = await multi.exec();
