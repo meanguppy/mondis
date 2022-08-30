@@ -10,10 +10,15 @@ mondis.init(redis, mongoose);
 type HelloDocument = {
   name: string;
   kind: string;
+  date: Date;
 };
 const HelloSchema = new Schema<HelloDocument>({
   name: String,
   kind: String,
+  date: {
+    type: Date,
+    default: new Date(),
+  },
 });
 
 type WorldDocument = {};
@@ -46,9 +51,8 @@ const Thingy = new CachedQuery<HelloDocument>(mondis, {
 
 async function main() {
   await seed();
-
-  const res = await Thingy.exec({ params: ['car'] });
-  console.log(res);
+  const res1 = await Thingy.exec({ params: ['car'] });
+  console.log(res1);
 }
 
 main();

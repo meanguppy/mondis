@@ -1,10 +1,8 @@
 import type { FilterQuery, PopulateOptions, SortOrder } from 'mongoose';
+import { serialize, deserialize } from 'bson';
 import * as crypto from 'crypto';
 import type Mondis from '../mondis';
 import { collectPopulatedIds, skipAndLimit } from './lib';
-
-export type QueryResult<T> =
-  ReturnType<CachedQuery<T>['execMongo']> extends Promise<infer V> ? V : never;
 
 // TODO: consider more strict definition, future features may bar complex selects.
 export type MongooseProjection = Record<string, unknown>;
@@ -100,6 +98,7 @@ class CachedQuery<T> implements Config {
     if (expectNumParams !== params.length) {
       throw Error(`Invalid number of params passed: expected ${expectNumParams}, got ${params.length}`);
     }
+    // TODO: use bson for params string?
     const paramsStr = JSON.stringify(params);
     return `q:${hash}${paramsStr}`;
   }
@@ -141,56 +140,19 @@ class CachedQuery<T> implements Config {
     return q.countDocuments();
   }
 
-  private async fetchFullJson(opts?: InputExecOpts<T>) {
-    const { redis } = this.context.clients;
-    opts = this.parseOpts(opts);
-    const {
-      params = [], skip = 0, limit, skipCache = false,
-    } = opts;
-    const { cacheCount } = this;
-    // query is outside cacheable skip/limit, fall back to mongo query and do not cache
-    if ((cacheCount < Infinity && limit === undefined) || (limit && (limit + skip) > cacheCount)) {
-      const mongoRes = await this.execMongo(opts);
-      return { hasAll: false, json: JSON.stringify(mongoRes) };
-    }
-
-    let json;
-    const cacheKey = this.getCacheKey(params);
-    if (!skipCache) {
-      try {
-        json = await redis.hget(cacheKey, 'value');
-      } catch (err) {
-        // logger.warn({ err, tag: 'CACHE_REDIS_GET', cacheKey }, 'Failed to HGET value');
-      }
-    }
-    if (!json) {
-      const mongoRes = await this.execMongo({ params, limit: cacheCount });
-      /* If a unique query has no results, do not cache the empty array.
-       * The matching item could still be inserted at a later time, and because
-       * unique queries do not invalidate upon document insert, that event
-       * would not be detected for invalidation. */
-      if (mongoRes.length > 0 || !this.unique) {
-        json = await this.stringifyAndCache(mongoRes, cacheKey);
-      } else {
-        json = JSON.stringify(mongoRes);
-      }
-    }
-    return { hasAll: true, json };
-  }
-
   /**
    * Stringifies the result object and stores it in cache.
    */
-  private async stringifyAndCache(result: QueryResult<T>, cacheKey: string) {
+  private async serializeAndCache(result: T[], cacheKey: string) {
     const { redis } = this.context.clients;
-    const json = JSON.stringify(result);
     try {
+      const bson = serialize(result);
       const depends = collectPopulatedIds(result, this.populate);
       const allKey = this.getCacheKeyForAll();
       // Cache result, and create keys used for tracking invalidations
       const multi = redis.multi();
       multi.del(cacheKey);
-      multi.hset(cacheKey, 'value', json);
+      multi.hset(cacheKey, 'value', bson);
       multi.hset(cacheKey, 'depends', depends.join(' '));
       multi.sadd(allKey, cacheKey);
       multi.expiregt(cacheKey, this.expiry);
@@ -203,27 +165,45 @@ class CachedQuery<T> implements Config {
     } catch (err) {
       // logger.warn({ err, tag: 'CACHE_REDIS_SET', cacheKey, result, }, 'Failed to set value');
     }
-    return json;
   }
 
-  async exec(opts?: InputExecOpts<T>) {
+  async exec(opts?: InputExecOpts<T>): Promise<T[]> {
+    const { redis } = this.context.clients;
     opts = this.parseOpts(opts);
-    const { filter, skip, limit } = opts;
-    const { hasAll, json } = await this.fetchFullJson(opts);
-    let result = JSON.parse(json) as Array<T>;
+    const {
+      params = [], skip = 0, limit, skipCache = false, filter,
+    } = opts;
+    const { cacheCount, unique } = this;
 
-    /* hasAll=false means this exec's skip/limit lies outside of the cacheCount,
-     *   so we fell back to mongo and already applied the skip/limit.
-     * hasAll=true means the array contains all documents up to the cacheCount,
-     *   so we must still apply this exec's skip/limit to the array.
-     * Note: filterable queries require cacheCount=Infinity, so hasAll is always true.
-     */
-    if (hasAll) {
-      if (filter) result = result.filter(filter);
-      result = skipAndLimit(result, skip, limit);
+    // query is outside cacheable skip/limit, fall back to mongo query and do not cache.
+    // note: filter not handled here because filterable queries require cacheCount=Infinity
+    if ((cacheCount < Infinity && limit === undefined) || (limit && (limit + skip) > cacheCount)) {
+      return (await this.execMongo(opts)) as T[];
     }
-
-    return result;
+    let result: undefined | T[];
+    const cacheKey = this.getCacheKey(params);
+    if (!skipCache) {
+      try {
+        const bson = await redis.hgetBuffer(cacheKey, 'value');
+        if (bson !== null) {
+          result = Object.values(deserialize(bson)) as T[];
+        }
+      } catch (err) {
+        // logger.warn({ err, tag: 'CACHE_REDIS_GET', cacheKey }, 'Failed to HGET value');
+      }
+    }
+    if (!result) {
+      result = await this.execMongo({ params, limit: cacheCount }) as T[];
+      /* If a unique query has no results, do not cache the empty array.
+       * The matching item could still be inserted at a later time, and because
+       * unique queries do not invalidate upon document insert, that event
+       * would not be detected for invalidation. */
+      if (result.length > 0 || !unique) {
+        this.serializeAndCache(result, cacheKey);
+      }
+    }
+    if (filter) result = result.filter(filter);
+    return skipAndLimit(result, skip, limit);
   }
 
   async execOne(opts?: InputExecOpts<T>) {
