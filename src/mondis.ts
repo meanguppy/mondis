@@ -10,8 +10,7 @@ declare module 'ioredis' {
       callback?: Callback<string>
     ): Result<string, Context>;
     delquery(
-      key: string,
-      ttl: number,
+      queryKey: string,
       callback?: Callback<string>
     ): Result<string, Context>;
   }
@@ -60,6 +59,14 @@ type MondisConfiguration = {
   mongoose?: Mongoose;
 };
 
+function registerSchemas(schemas: Record<string, Schema>, mongoose: Mongoose) {
+  const existingModels = mongoose.modelNames();
+  Object.keys(schemas).forEach((schemaName) => {
+    if (existingModels.includes(schemaName)) return;
+    mongoose.model(schemaName, schemas[schemaName]);
+  });
+}
+
 class Mondis {
   private _redis?: Redis;
 
@@ -73,33 +80,18 @@ class Mondis {
 
   init(config: MondisConfiguration) {
     const { schemas, redis, mongoose } = config;
-    /* Keep reference to schemas */
-    if (schemas) {
-      this._schemas = schemas;
-    }
-    /* Set redis client, adding custom commands */
+    /* Set redis client, add custom commands/lua scripts */
     if (redis) {
       Object.entries(commands).forEach(([name, conf]) => {
         redis.defineCommand(name, conf);
       });
       this._redis = redis;
     }
-    /* Set mongoose client */
-    if (mongoose) {
-      this._mongoose = mongoose;
-    }
+    /* Keep reference to schemas, set mongoose client */
+    if (schemas) this._schemas = schemas;
+    if (mongoose) this._mongoose = mongoose;
     /* Register schemas with mongoose, if both have been set */
-    if (this._schemas && this._mongoose) {
-      this.registerSchemas(this._schemas, this._mongoose);
-    }
-  }
-
-  private registerSchemas(schemas: Record<string, Schema>, mongoose: Mongoose) {
-    const existingModels = mongoose.modelNames();
-    Object.keys(schemas).forEach((schemaName) => {
-      if (existingModels.includes(schemaName)) return;
-      mongoose.model(schemaName, schemas[schemaName]);
-    });
+    if (this._schemas && this._mongoose) registerSchemas(this._schemas, this._mongoose);
   }
 
   get redis() {

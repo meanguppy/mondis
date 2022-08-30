@@ -22,7 +22,7 @@
     "typescript": "^4.6.2"
   },
   "dependencies": {
-    "bson": "^4.6.4",
+    "bson": "^4.7.0",
     "ioredis": "^5.0.6",
     "lodash.get": "^4.4.2",
     "mongoose": "^6.3.5"
