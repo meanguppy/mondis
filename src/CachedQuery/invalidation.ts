@@ -137,7 +137,7 @@ export async function invalidate(
 ) {
   if (!keys.length) return;
 
-  const { redis } = ctx.clients;
+  const { redis } = ctx;
   const multi = redis.multi();
   keys.forEach((key) => multi.call('delquery', key));
   const results = await multi.exec();
@@ -163,14 +163,6 @@ export async function invalidate(
 
   // if there are no queries to rehydrate, exit early
   if (!callables.length) return;
-
-  // open Mongoose connection and ensure all models are available
-  // const existingModels = mongoose.modelNames();
-  // Object.keys(allSchemas).forEach((schemaName) => {
-  //   if (!existingModels.includes(schemaName)) {
-  //     mongoose.model(schemaName, allSchemas[schemaName]);
-  //   }
-  // });
 
   // start and await all promises
   await Promise.all(callables.map((func) => func()));

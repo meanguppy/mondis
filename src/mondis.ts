@@ -1,6 +1,6 @@
 import type Redis from 'ioredis';
 import type { Result, Callback } from 'ioredis';
-import type { Mongoose } from 'mongoose';
+import type { Mongoose, Schema } from 'mongoose';
 
 declare module 'ioredis' {
   interface RedisCommander<Context> {
@@ -17,54 +17,99 @@ declare module 'ioredis' {
   }
 }
 
+const commands = {
+  /**
+   * Expire-Greater:
+   *   Sets a key's expiry to either the provided TTL or the current one, whichever is greater.
+   */
+  expiregt: {
+    numberOfKeys: 1,
+    lua: `
+      local newTTL = tonumber(ARGV[1])
+      local curTTL = redis.call("TTL", KEYS[1])
+      if newTTL > curTTL then
+        return redis.call("EXPIRE", KEYS[1], newTTL)
+      end
+    `,
+  },
+  /**
+   * Delete-Query:
+   *   Delete a cached query and clean up other keys used for invalidation tracking.
+   */
+  delquery: {
+    numberOfKeys: 1,
+    lua: `
+      local qkey = KEYS[1]
+      local depends = redis.call("HGET", qkey, "depends")
+      if depends == nil then
+        return 0 end
+      local allKey = "all:"..string.sub(qkey, 3, 18)
+      redis.call("SREM", allKey, qkey)
+      redis.call("DEL", qkey)
+      for key in string.gmatch(depends, "%S+") do
+        redis.call("SREM", "obj:"..key, qkey)
+      end
+      return 1
+    `,
+  },
+} as const;
+
+type MondisConfiguration = {
+  schemas?: Record<string, Schema>;
+  redis?: Redis;
+  mongoose?: Mongoose;
+};
+
 class Mondis {
-  private _clients?: { redis: Redis, mongoose: Mongoose };
+  private _redis?: Redis;
 
-  init(redis: Redis, mongoose: Mongoose) {
-    /**
-     * Expire-Greater:
-     *   Sets a key's expiry to either the provided TTL or the current one, whichever is greater.
-     */
-    redis.defineCommand('expiregt', {
-      numberOfKeys: 1,
-      lua: `
-        local newTTL = tonumber(ARGV[1])
-        local curTTL = redis.call("TTL", KEYS[1])
-        if newTTL > curTTL then
-          return redis.call("EXPIRE", KEYS[1], newTTL)
-        end
-      `,
-    });
+  private _mongoose?: Mongoose;
 
-    /**
-     * Delete-Query:
-     *   Delete a cached query and clean up other keys used for invalidation tracking.
-     */
-    redis.defineCommand('delquery', {
-      numberOfKeys: 1,
-      lua: `
-        local qkey = KEYS[1]
-        local depends = redis.call("HGET", qkey, "depends")
-        if depends == nil then
-          return 0 end
-        local allKey = "all:"..string.sub(qkey, 3, 18)
-        redis.call("SREM", allKey, qkey)
-        redis.call("DEL", qkey)
-        for key in string.gmatch(depends, "%S+") do
-          redis.call("SREM", "obj:"..key, qkey)
-        end
-        return 1
-      `,
-    });
+  private _schemas?: Record<string, Schema>;
 
-    this._clients = { redis, mongoose };
+  constructor(config?: MondisConfiguration) {
+    this.init(config ?? {});
   }
 
-  get clients() {
-    if (!this._clients) {
-      throw Error('Backing clients have not yet been set with init(redis, mongoose)');
+  init(config: MondisConfiguration) {
+    const { schemas, redis, mongoose } = config;
+    /* Keep reference to schemas */
+    if (schemas) {
+      this._schemas = schemas;
     }
-    return this._clients;
+    /* Set redis client, adding custom commands */
+    if (redis) {
+      Object.entries(commands).forEach(([name, conf]) => {
+        redis.defineCommand(name, conf);
+      });
+      this._redis = redis;
+    }
+    /* Set mongoose client */
+    if (mongoose) {
+      this._mongoose = mongoose;
+    }
+    /* Register schemas with mongoose, if both have been set */
+    if (this._schemas && this._mongoose) {
+      this.registerSchemas(this._schemas, this._mongoose);
+    }
+  }
+
+  private registerSchemas(schemas: Record<string, Schema>, mongoose: Mongoose) {
+    const existingModels = mongoose.modelNames();
+    Object.keys(schemas).forEach((schemaName) => {
+      if (existingModels.includes(schemaName)) return;
+      mongoose.model(schemaName, schemas[schemaName]);
+    });
+  }
+
+  get redis() {
+    if (!this._redis) throw Error('Redis client has not yet been set with init()');
+    return this._redis;
+  }
+
+  get mongoose() {
+    if (!this._mongoose) throw Error('Mongoose client has not yet been set with init()');
+    return this._mongoose;
   }
 }
 

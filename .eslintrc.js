@@ -15,8 +15,15 @@ module.exports = {
     'plugin:@typescript-eslint/recommended-requiring-type-checking',
   ],
   rules: {
+    '@typescript-eslint/ban-types': [
+      'error',
+      {
+        types: { "{}": false },
+        extendDefaults: true,
+      },
+    ],
     '@typescript-eslint/no-floating-promises': 0,
-    '@typescript-eslint/naming-convention': 0, //TODO
+    '@typescript-eslint/naming-convention': 0,
     'class-methods-use-this': 0,
     'import/extensions': 0,
     'import/prefer-default-export': 0,

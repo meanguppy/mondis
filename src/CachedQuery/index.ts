@@ -108,7 +108,7 @@ class CachedQuery<T> implements Config {
   }
 
   private buildQuery(opts?: InputExecOpts<T>) {
-    const { mongoose } = this.context.clients;
+    const { mongoose } = this.context;
     const { params = [], skip, limit } = this.parseOpts(opts);
     const {
       model, query, unique, select, sort, populate = [],
@@ -144,7 +144,7 @@ class CachedQuery<T> implements Config {
    * Stringifies the result object and stores it in cache.
    */
   private async serializeAndCache(result: T[], cacheKey: string) {
-    const { redis } = this.context.clients;
+    const { redis } = this.context;
     try {
       const bson = serialize(result);
       const depends = collectPopulatedIds(result, this.populate);
@@ -168,7 +168,7 @@ class CachedQuery<T> implements Config {
   }
 
   async exec(opts?: InputExecOpts<T>): Promise<T[]> {
-    const { redis } = this.context.clients;
+    const { redis } = this.context;
     opts = this.parseOpts(opts);
     const {
       params = [], skip = 0, limit, skipCache = false, filter,
@@ -206,10 +206,10 @@ class CachedQuery<T> implements Config {
     return skipAndLimit(result, skip, limit);
   }
 
-  async execOne(opts?: InputExecOpts<T>) {
+  async execOne(opts?: InputExecOpts<T>): Promise<T | null> {
     opts = this.parseOpts(opts);
     const result = await this.exec({ ...opts, limit: 1 });
-    return (result && result.length) ? result[0] : null;
+    return result[0] ?? null;
   }
 
   async execWithCount(opts?: InputExecOpts<T>): Promise<[T[], number]> {
@@ -235,7 +235,7 @@ class CachedQuery<T> implements Config {
   }
 
   async count(opts?: InputExecOpts<T>) {
-    const { redis } = this.context.clients;
+    const { redis } = this.context;
     opts = this.parseOpts(opts);
     const { params = [], filter, skipCache = false } = opts;
     if (filter) {

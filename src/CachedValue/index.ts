@@ -35,7 +35,7 @@ class CachedValue<T> extends AbstractCacheable<T, unknown[]> {
 
   // async fetchCache(key: string, params: unknown[]) {
   async fetchCache(key: string) {
-    const { redis } = this.context.clients;
+    const { redis } = this.context;
     let json;
     try {
       json = await redis.get(key);
@@ -47,7 +47,7 @@ class CachedValue<T> extends AbstractCacheable<T, unknown[]> {
 
   // async updateCache(key: string, data: T | null, params: unknown[]) {
   async updateCache(key: string, data: T | null) {
-    const { redis } = this.context.clients;
+    const { redis } = this.context;
     try {
       const json = JSON.stringify(data);
       await redis.setex(key, this.expiry, json);
