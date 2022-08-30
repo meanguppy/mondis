@@ -1,6 +1,11 @@
 import mongoose, { Schema } from 'mongoose';
+import Redis from 'ioredis';
 import Mondis from './mondis';
 import CachedQuery from './CachedQuery';
+
+const redis = new Redis(6379, '127.0.0.1');
+const mondis = new Mondis();
+mondis.init(redis, mongoose);
 
 type HelloDocument = {
   name: string;
@@ -17,18 +22,13 @@ const WorldSchema = new Schema<WorldDocument>({});
 const Hello = mongoose.model('Hello', HelloSchema);
 const World = mongoose.model('World', WorldSchema);
 
-const mondis = new Mondis();
-const Thingy = new CachedQuery<HelloDocument>(mondis, {
-  model: 'Hello',
-  query: { },
-});
-
 async function seed() {
-  await mongoose.connect('mongodb://localhost/cq-dev');
-
-  await Hello.deleteMany({});
-  await World.deleteMany({});
-
+  await Promise.all([
+    mongoose.connect('mongodb://localhost/cq-dev'),
+    redis.flushall(),
+    Hello.deleteMany({}),
+    World.deleteMany({}),
+  ]);
   await Hello.insertMany([
     { name: 'frank', kind: 'car' },
     { name: 'henry', kind: 'truck' },
@@ -39,15 +39,16 @@ async function seed() {
   ]);
 }
 
+const Thingy = new CachedQuery<HelloDocument>(mondis, {
+  model: 'Hello',
+  query: (kind: string) => ({ kind }),
+});
+
 async function main() {
   await seed();
 
-  const res = await Thingy.exec();
-  const item = res[0];
-  if (!item) return;
-
-  const { name, kind } = item;
-  console.log(name, kind);
+  const res = await Thingy.exec({ params: ['car'] });
+  console.log(res);
 }
 
 main();

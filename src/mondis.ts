@@ -1,5 +1,21 @@
-import type { Redis } from 'ioredis';
+import type Redis from 'ioredis';
+import type { Result, Callback } from 'ioredis';
 import type { Mongoose } from 'mongoose';
+
+declare module 'ioredis' {
+  interface RedisCommander<Context> {
+    expiregt(
+      key: string,
+      ttl: number,
+      callback?: Callback<string>
+    ): Result<string, Context>;
+    delquery(
+      key: string,
+      ttl: number,
+      callback?: Callback<string>
+    ): Result<string, Context>;
+  }
+}
 
 class Mondis {
   private _clients?: { redis: Redis, mongoose: Mongoose };
@@ -41,10 +57,7 @@ class Mondis {
       `,
     });
 
-    this._clients = {
-      redis,
-      mongoose,
-    };
+    this._clients = { redis, mongoose };
   }
 
   get clients() {

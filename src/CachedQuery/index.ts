@@ -76,7 +76,7 @@ class CachedQuery<T> implements Config {
       select = {},
       populate = [],
       sort = null,
-      cacheCount = 10,
+      cacheCount = Infinity,
       expiry = 12 * 60 * 60, // 12 hours
       unique = false,
       invalidateOnInsert = true,
@@ -193,11 +193,11 @@ class CachedQuery<T> implements Config {
       multi.hset(cacheKey, 'value', json);
       multi.hset(cacheKey, 'depends', depends.join(' '));
       multi.sadd(allKey, cacheKey);
-      multi.call('expiregt', cacheKey, this.expiry);
-      multi.call('expiregt', allKey, this.expiry);
+      multi.expiregt(cacheKey, this.expiry);
+      multi.expiregt(allKey, this.expiry);
       depends.forEach((id) => {
         multi.sadd(`obj:${id}`, cacheKey);
-        multi.call('expiregt', `obj:${id}`, this.expiry);
+        multi.expiregt(`obj:${id}`, this.expiry);
       });
       await multi.exec();
     } catch (err) {
@@ -290,7 +290,7 @@ class CachedQuery<T> implements Config {
   get hash() {
     if (!this._hash) {
       // extract config from self, ignoring some other keys
-      const { _hash, ...config } = this;
+      const { _hash, context, ...config } = this;
       const queryFunc = config.query;
       if (typeof queryFunc === 'function') {
         const params = Array(queryFunc.length).fill(null).map((_v, i) => `$CQP${i}$`);
