@@ -51,12 +51,12 @@ const commands = {
       return 1
     `,
   },
-} as const;
+};
 
 type MondisConfiguration = {
-  schemas?: Record<string, Schema>;
   redis?: Redis;
   mongoose?: Mongoose;
+  schemas?: Record<string, Schema>;
 };
 
 function registerSchemas(schemas: Record<string, Schema>, mongoose: Mongoose) {

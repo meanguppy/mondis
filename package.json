@@ -12,7 +12,7 @@
   "license": "ISC",
   "devDependencies": {
     "@tsconfig/node16-strictest": "^1.0.3",
-    "@types/lodash.get": "^4.4.7",
+    "@types/lodash": "^4.14.184",
     "@typescript-eslint/eslint-plugin": "^5.13.0",
     "@typescript-eslint/parser": "^5.13.0",
     "eslint": "^8.10.0",
@@ -23,8 +23,9 @@
   },
   "dependencies": {
     "bson": "^4.7.0",
+    "immer": "^9.0.15",
     "ioredis": "^5.0.6",
-    "lodash.get": "^4.4.2",
+    "lodash": "^4.17.21",
     "mongoose": "^6.3.5"
   }
 }

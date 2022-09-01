@@ -1,15 +1,17 @@
 import { Types } from 'mongoose';
-import get from 'lodash.get';
+import { get } from 'lodash';
 import type { MongoosePopulations } from '.';
 
-const { ObjectId } = Types;
-type HasObjectId = { _id: Types.ObjectId };
+export type HasObjectId = {
+  _id: Types.ObjectId;
+  [key: string]: unknown;
+};
 
 function hasObjectId(target: unknown): target is HasObjectId {
   return (
     !!target
     && typeof target === 'object'
-    && (target as { _id?: unknown })._id instanceof ObjectId
+    && (target as { _id?: unknown })._id instanceof Types.ObjectId
   );
 }
 /**
