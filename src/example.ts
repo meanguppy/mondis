@@ -2,7 +2,9 @@ import mongoose, { Schema, Types } from 'mongoose';
 import Redis from 'ioredis';
 import Mondis from './mondis';
 import CachedQuery from './CachedQuery';
+import documentWatcherPlugin from './CachedQuery/mongoosePlugin';
 
+mongoose.plugin(documentWatcherPlugin);
 const redis = new Redis(6379, '127.0.0.1');
 const mondis = new Mondis({ redis, mongoose });
 
@@ -12,6 +14,7 @@ type HelloDocument = {
   kind: string;
   date: Date;
   friend: WorldDocument;
+  items: Array<{ hello: string, world: string }>;
 };
 const HelloSchema = new Schema<HelloDocument>({
   name: String,
@@ -24,6 +27,9 @@ const HelloSchema = new Schema<HelloDocument>({
     type: Schema.Types.ObjectId,
     ref: 'World',
   },
+  items: [
+    { _id: false, hello: String, world: String },
+  ],
 });
 
 type WorldDocument = {
@@ -44,7 +50,7 @@ async function seed() {
     Hello.deleteMany({}),
     World.deleteMany({}),
   ]);
-  const ws = await World.insertMany([
+  await World.insertMany([
     { name: 'one' },
     { name: 'two' },
     { name: 'three' },
@@ -56,7 +62,7 @@ async function seed() {
     { name: 'oliver', kind: 'plane' },
     { name: 'gary', kind: 'plane' },
     { name: 'franklin', kind: 'truck' },
-    { name: 'john', kind: 'car', friend: ws[0]!._id },
+    { name: 'john', kind: 'car' },
   ]);
 }
 
