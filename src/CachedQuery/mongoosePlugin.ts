@@ -7,17 +7,10 @@ import {
   UpdateWriteOpResult,
   Document,
 } from 'mongoose';
-import type { HasObjectId } from './lib';
-
-/**
- * There are only two ways in which the cache recognizes events:
- * 1. Insert: documents were inserted into the DB.
- * 2. Remove: documents were removed from the DB.
- * Note: database updates are handled as if they were removed and then re-inserted!
- */
-export type CacheEffect =
-  | { op: 'insert', modelName: string, docs: HasObjectId[] }
-  | { op: 'remove', modelName: string, ids: Types.ObjectId[] };
+import type {
+  CacheEffect,
+  HasObjectId,
+} from './types';
 
 type DocumentWithId = HydratedDocument<unknown>;
 
@@ -70,7 +63,7 @@ const DOCS = { document: true, query: false } as const;
 const QUERIES = { document: false, query: true } as const;
 
 export default function documentWatcherPlugin(schema: Schema) {
-  function invoke(evt: CacheEffect) {
+  function invoke(event: CacheEffect) {
     // TODO: link this handler with mondis
     // console.log(evt);
   }

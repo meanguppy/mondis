@@ -1,11 +1,9 @@
 import { Types } from 'mongoose';
 import { get } from 'lodash';
-import type { MongoosePopulations } from '.';
-
-export type HasObjectId = {
-  _id: Types.ObjectId;
-  [key: string]: unknown;
-};
+import type {
+  HasObjectId,
+  MongoosePopulations,
+} from './types';
 
 function hasObjectId(target: unknown): target is HasObjectId {
   return (

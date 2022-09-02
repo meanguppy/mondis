@@ -1,6 +1,7 @@
 import type Redis from 'ioredis';
 import type { Result, Callback } from 'ioredis';
-import type { Mongoose, Schema } from 'mongoose';
+import type { Mongoose } from 'mongoose';
+import type { CacheEffect } from './CachedQuery/types';
 
 declare module 'ioredis' {
   interface RedisCommander<Context> {
@@ -56,42 +57,29 @@ const commands = {
 type MondisConfiguration = {
   redis?: Redis;
   mongoose?: Mongoose;
-  schemas?: Record<string, Schema>;
 };
-
-function registerSchemas(schemas: Record<string, Schema>, mongoose: Mongoose) {
-  const existingModels = mongoose.modelNames();
-  Object.keys(schemas).forEach((schemaName) => {
-    if (existingModels.includes(schemaName)) return;
-    mongoose.model(schemaName, schemas[schemaName]);
-  });
-}
 
 class Mondis {
   private _redis?: Redis;
 
   private _mongoose?: Mongoose;
 
-  private _schemas?: Record<string, Schema>;
-
   constructor(config?: MondisConfiguration) {
     this.init(config ?? {});
   }
 
   init(config: MondisConfiguration) {
-    const { schemas, redis, mongoose } = config;
-    /* Set redis client, add custom commands/lua scripts */
+    const { redis, mongoose } = config;
     if (redis) {
       Object.entries(commands).forEach(([name, conf]) => {
         redis.defineCommand(name, conf);
       });
       this._redis = redis;
     }
-    /* Keep reference to schemas, set mongoose client */
-    if (schemas) this._schemas = schemas;
     if (mongoose) this._mongoose = mongoose;
-    /* Register schemas with mongoose, if both have been set */
-    if (this._schemas && this._mongoose) registerSchemas(this._schemas, this._mongoose);
+  }
+
+  notifyEffect(event: CacheEffect) {
   }
 
   get redis() {

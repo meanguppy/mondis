@@ -1,4 +1,6 @@
 dist/
 node_modules/
 .project
+.mongodb
+start
 CACHE-JS
