@@ -27,7 +27,7 @@ type CachedQueryConfig = {
 };
 
 type QueryExecOpts<T> = {
-  params?: unknown[];
+  params?: unknown[] | undefined;
   limit?: number;
   skip?: number;
   filter?: (doc: T) => boolean;
@@ -89,10 +89,8 @@ class CachedQuery<T> {
 
   private buildQuery(opts?: InputExecOpts<T>) {
     const { mongoose } = this.context;
+    const { model, query, unique, select, sort, populate } = this.config;
     const { params = [], skip, limit } = this.parseOpts(opts);
-    const {
-      model, query, unique, select, sort, populate,
-    } = this.config;
     const queryObj = (typeof query === 'object') ? query : query(...params);
     const q = mongoose.model<T>(model).find(queryObj);
     if (unique) {
@@ -108,16 +106,12 @@ class CachedQuery<T> {
   }
 
   async execMongo(opts?: InputExecOpts<T>) {
-    const query = this.buildQuery(opts);
-    const result = await query.lean().exec();
-    return result;
+    return this.buildQuery(opts).lean().exec();
   }
 
   async countMongo(opts?: InputExecOpts<T>) {
-    opts = this.parseOpts(opts);
-    const { skip, limit, ...rest } = opts;
-    const q = this.buildQuery(rest);
-    return q.countDocuments();
+    const { skip, limit, ...rest } = this.parseOpts(opts);
+    return this.buildQuery(rest).countDocuments();
   }
 
   /**
@@ -149,12 +143,10 @@ class CachedQuery<T> {
   }
 
   async exec(opts?: InputExecOpts<T>): Promise<T[]> {
-    const { redis } = this.context;
     opts = this.parseOpts(opts);
-    const {
-      params = [], skip = 0, limit, skipCache = false, filter,
-    } = opts;
+    const { redis } = this.context;
     const { cacheCount, unique } = this.config;
+    const { params, skip = 0, limit, skipCache = false, filter } = opts;
 
     // query is outside cacheable skip/limit, fall back to mongo query and do not cache.
     // note: filter not handled here because filterable queries require cacheCount=Infinity
@@ -217,8 +209,8 @@ class CachedQuery<T> {
   }
 
   async count(opts?: InputExecOpts<T>) {
-    const { redis } = this.context;
     opts = this.parseOpts(opts);
+    const { redis } = this.context;
     const { params = [], filter, skipCache = false } = opts;
     if (filter) {
       const { skip, limit, ...rest } = opts;

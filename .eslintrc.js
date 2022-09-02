@@ -18,7 +18,7 @@ module.exports = {
     '@typescript-eslint/ban-types': [
       'error',
       {
-        types: { "{}": false },
+        types: { '{}': false },
         extendDefaults: true,
       },
     ],
@@ -29,6 +29,7 @@ module.exports = {
     'import/prefer-default-export': 0,
     'no-param-reassign': 0,
     'no-underscore-dangle': 0,
+    'object-curly-newline': 0,
   },
   ignorePatterns: ['dist', '**/*.js'],
 };
