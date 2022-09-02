@@ -2,6 +2,7 @@ import type Redis from 'ioredis';
 import type { Result, Callback } from 'ioredis';
 import type { Mongoose } from 'mongoose';
 import type { CacheEffect } from './CachedQuery/types';
+import bindPlugin from './CachedQuery/mongoosePlugin';
 
 declare module 'ioredis' {
   interface RedisCommander<Context> {
@@ -79,7 +80,12 @@ class Mondis {
     if (mongoose) this._mongoose = mongoose;
   }
 
-  notifyEffect(event: CacheEffect) {
+  notifyEffect(effect: CacheEffect) {
+    console.log('GOT EFFECT', effect);
+  }
+
+  plugin() {
+    return bindPlugin(this);
   }
 
   get redis() {

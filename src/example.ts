@@ -2,11 +2,10 @@ import mongoose, { Schema, Types } from 'mongoose';
 import Redis from 'ioredis';
 import Mondis from './mondis';
 import CachedQuery from './CachedQuery';
-import documentWatcherPlugin from './CachedQuery/mongoosePlugin';
 
-mongoose.plugin(documentWatcherPlugin);
 const redis = new Redis(6379, '127.0.0.1');
 const mondis = new Mondis({ redis, mongoose });
+mongoose.plugin(mondis.plugin());
 
 type HelloDocument = {
   _id: Types.ObjectId;
