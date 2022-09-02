@@ -1,15 +1,28 @@
-import type { PopulateOptions, SortOrder, Types } from 'mongoose';
+import type { QueryOptions, SortOrder, Types } from 'mongoose';
 
-// TODO: consider more strict definition, future features may bar complex selects.
 export type MongooseProjection = Record<string, unknown>;
 
-export type MongoosePopulations = Array<{
-  [P in keyof PopulateOptions]: P extends 'populate'
-    ? MongoosePopulations
-    : PopulateOptions[P];
-}>;
+// stricter version of mongoose.PopulateOptions
+export type MongoosePopulation = {
+  path: string;
+  select?: MongooseProjection;
+  match?: unknown;
+  model?: string;
+  options?: QueryOptions;
+  perDocumentLimit?: number;
+  strictPopulate?: boolean;
+  populate?: MongoosePopulation[];
+  justOne?: boolean;
+  transform?: (doc: unknown, id: unknown) => unknown;
+};
 
 export type MongooseSortConfig = string | { [key: string]: SortOrder };
+
+export type QueryKeysClassification = {
+  staticKeys: Record<string, unknown>;
+  dynamicKeys: string[];
+  complexQuery: boolean;
+};
 
 export type HasObjectId = {
   _id: Types.ObjectId;

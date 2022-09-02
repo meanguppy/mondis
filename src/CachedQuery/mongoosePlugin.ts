@@ -62,11 +62,11 @@ function getFindOneAndInfo(query: QueryExtras) {
 const DOCS = { document: true, query: false } as const;
 const QUERIES = { document: false, query: true } as const;
 
-type PluginTarget = {
+type CacheEffectReceiver = {
   notifyEffect(evt: CacheEffect): unknown;
 };
 
-export default function bindPlugin(target: PluginTarget) {
+export default function bindPlugin(target: CacheEffectReceiver) {
   function effect(evt: CacheEffect) {
     target.notifyEffect(evt);
   }

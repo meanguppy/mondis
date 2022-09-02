@@ -1,20 +1,23 @@
-import type { FilterQuery } from 'mongoose';
 import { serialize, deserialize } from 'bson';
-import crypto from 'crypto';
 import type Mondis from '../mondis';
 import type {
-  MongoosePopulations,
+  MongoosePopulation,
   MongooseProjection,
   MongooseSortConfig,
+  QueryKeysClassification,
 } from './types';
-import { collectPopulatedIds, skipAndLimit } from './lib';
+import {
+  classifyQueryKeys,
+  collectPopulatedIds,
+  jsonHash,
+  skipAndLimit,
+} from './lib';
 
-type ConfigInput = {
+type CachedQueryConfig = {
   model: string;
-  // TODO: decide if FilterQuery is a good definition for this.
-  query: FilterQuery<unknown> | ((...params: unknown[]) => FilterQuery<unknown>);
+  query: Record<string, unknown> | ((...params: unknown[]) => Record<string, unknown>);
   select?: MongooseProjection;
-  populate?: MongoosePopulations;
+  populate?: MongoosePopulation[];
   sort?: MongooseSortConfig | null;
   cacheCount?: number;
   unique?: boolean;
@@ -22,8 +25,6 @@ type ConfigInput = {
   expiry?: number;
   rehydrate?: boolean;
 };
-
-type Config = Required<ConfigInput>;
 
 type QueryExecOpts<T> = {
   params?: unknown[];
@@ -35,32 +36,16 @@ type QueryExecOpts<T> = {
 
 type InputExecOpts<T> = unknown[] | QueryExecOpts<T>;
 
-class CachedQuery<T> implements Config {
+class CachedQuery<T> {
   context: Mondis;
+
+  config: Required<CachedQueryConfig>;
 
   private _hash?: string;
 
-  model: string;
+  private _classification?: QueryKeysClassification;
 
-  query: FilterQuery<unknown> | ((...params: unknown[]) => FilterQuery<unknown>);
-
-  select: MongooseProjection;
-
-  populate: MongoosePopulations;
-
-  sort: MongooseSortConfig | null;
-
-  cacheCount: number;
-
-  expiry: number;
-
-  unique: boolean;
-
-  invalidateOnInsert: boolean;
-
-  rehydrate: boolean;
-
-  constructor(context: Mondis, config: ConfigInput) {
+  constructor(context: Mondis, config: CachedQueryConfig) {
     this.context = context;
     const {
       model,
@@ -74,25 +59,26 @@ class CachedQuery<T> implements Config {
       invalidateOnInsert = true,
       rehydrate = true,
     } = config;
-    this.model = model;
-    this.query = query;
-    this.select = select;
-    this.populate = populate;
-    this.sort = sort;
-    this.cacheCount = cacheCount;
-    this.expiry = expiry;
-    this.unique = unique;
-    this.invalidateOnInsert = invalidateOnInsert;
-    this.rehydrate = rehydrate;
+    this.config = {
+      model,
+      query,
+      select,
+      populate,
+      sort,
+      cacheCount,
+      expiry,
+      unique,
+      invalidateOnInsert,
+      rehydrate,
+    };
   }
 
   getCacheKey(params: unknown[] = []) {
-    const { query, hash } = this;
+    const { hash, config: { query } } = this;
     const expectNumParams = (typeof query === 'function') ? query.length : 0;
     if (expectNumParams !== params.length) {
       throw Error(`Invalid number of params passed: expected ${expectNumParams}, got ${params.length}`);
     }
-    // TODO: use bson for params string?
     const paramsStr = JSON.stringify(params);
     return `q:${hash}${paramsStr}`;
   }
@@ -105,8 +91,8 @@ class CachedQuery<T> implements Config {
     const { mongoose } = this.context;
     const { params = [], skip, limit } = this.parseOpts(opts);
     const {
-      model, query, unique, select, sort, populate = [],
-    } = this;
+      model, query, unique, select, sort, populate,
+    } = this.config;
     const queryObj = (typeof query === 'object') ? query : query(...params);
     const q = mongoose.model<T>(model).find(queryObj);
     if (unique) {
@@ -139,9 +125,10 @@ class CachedQuery<T> implements Config {
    */
   private async serializeAndCache(result: T[], cacheKey: string) {
     const { redis } = this.context;
+    const { populate, expiry } = this.config;
     try {
       const bson = serialize(result);
-      const depends = collectPopulatedIds(result, this.populate);
+      const depends = collectPopulatedIds(result, populate);
       const allKey = this.getCacheKeyForAll();
       // Cache result, and create keys used for tracking invalidations
       const multi = redis.multi();
@@ -149,11 +136,11 @@ class CachedQuery<T> implements Config {
       multi.hset(cacheKey, 'value', bson);
       multi.hset(cacheKey, 'depends', depends.join(' '));
       multi.sadd(allKey, cacheKey);
-      multi.expiregt(cacheKey, this.expiry);
-      multi.expiregt(allKey, this.expiry);
+      multi.expiregt(cacheKey, expiry);
+      multi.expiregt(allKey, expiry);
       depends.forEach((id) => {
         multi.sadd(`obj:${id}`, cacheKey);
-        multi.expiregt(`obj:${id}`, this.expiry);
+        multi.expiregt(`obj:${id}`, expiry);
       });
       await multi.exec();
     } catch (err) {
@@ -167,7 +154,7 @@ class CachedQuery<T> implements Config {
     const {
       params = [], skip = 0, limit, skipCache = false, filter,
     } = opts;
-    const { cacheCount, unique } = this;
+    const { cacheCount, unique } = this.config;
 
     // query is outside cacheable skip/limit, fall back to mongo query and do not cache.
     // note: filter not handled here because filterable queries require cacheCount=Infinity
@@ -208,11 +195,12 @@ class CachedQuery<T> implements Config {
 
   async execWithCount(opts?: InputExecOpts<T>): Promise<[T[], number]> {
     opts = this.parseOpts(opts);
+    const { cacheCount } = this.config;
     /* If cacheCount is infinity, we know all the documents matching the query
      * are already stored on cache. We already have to grab and splice it,
      * so we might as well use the array length instead of another lookup.
      */
-    if (this.cacheCount === Infinity) {
+    if (cacheCount === Infinity) {
       const { skip, limit, ...rest } = opts;
       // note: if applicable, the filter func is already applied to fullResult.
       const fullResult = await this.exec({ ...rest, skip: 0 });
@@ -257,31 +245,36 @@ class CachedQuery<T> implements Config {
     return typeof count === 'number' ? count : parseInt(count, 10);
   }
 
+  private parseOpts(opts?: InputExecOpts<T>): QueryExecOpts<T> {
+    if (!opts) return {};
+    if (Array.isArray(opts)) return { params: opts };
+    const { cacheCount } = this.config;
+    if (opts.filter && cacheCount !== Infinity) throw Error('Filter can only be used with non-unique queries with cacheCount=Infinity');
+    return opts;
+  }
+
   /* Generates a hash of the config object used to create this CachedQuery.
    * Used in the redis key name. This is useful for versioning queries, as
    * updated queries will not clash with the old ones, which will simply expire away.
    */
   get hash() {
     if (!this._hash) {
-      // extract config from self, ignoring some other keys
-      const { _hash, context, ...config } = this;
-      const queryFunc = config.query;
-      if (typeof queryFunc === 'function') {
-        const params = Array(queryFunc.length).fill(null).map((_v, i) => `$CQP${i}$`);
-        config.query = queryFunc(...params);
+      let { query } = this.config;
+      if (typeof query === 'function') {
+        const params = Array(query.length).fill(null).map((_v, i) => `$CQP${i}$`);
+        query = query(...params);
       }
-      const json = JSON.stringify(config);
-      this._hash = crypto.createHash('sha1')
-        .update(json).digest('base64').substring(0, 16);
+      this._hash = jsonHash({ ...this.config, query });
     }
     return this._hash;
   }
 
-  private parseOpts(opts?: InputExecOpts<T>): QueryExecOpts<T> {
-    if (!opts) return {};
-    if (Array.isArray(opts)) return { params: opts };
-    if (opts.filter && this.cacheCount !== Infinity) throw Error('Filter can only be used with non-unique queries with cacheCount=Infinity');
-    return opts;
+  get classification() {
+    if (!this._classification) {
+      const { query } = this.config;
+      this._classification = classifyQueryKeys(query);
+    }
+    return this._classification;
   }
 }
 
