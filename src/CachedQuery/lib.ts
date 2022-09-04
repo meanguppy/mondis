@@ -2,8 +2,9 @@ import { Types } from 'mongoose';
 import { get } from 'lodash';
 import crypto from 'crypto';
 import type {
+  QueryFilter,
   HasObjectId,
-  MongoosePopulation,
+  QueryPopulation,
   QueryKeysClassification,
 } from './types';
 
@@ -21,7 +22,7 @@ export function hasObjectId(target: unknown): target is HasObjectId {
  */
 export function collectPopulatedIds(
   docs: Partial<HasObjectId>[],
-  populations?: MongoosePopulation[],
+  populations?: QueryPopulation[],
 ) {
   const initial = docs.filter((doc) => !!doc._id).map((doc) => String(doc._id));
   if (!populations?.length) return initial;
@@ -66,8 +67,8 @@ export function skipAndLimit<T>(array: T[], skip?: number, limit?: number) {
  *   Which keys are static and which are configurable?
  *   Is any configurable query complex (not a string comparison)?
  */
-export function classifyQueryKeys(
-  query: Record<string, unknown> | ((...params: unknown[]) => Record<string, unknown>),
+export function classifyQueryKeys<P extends unknown[]>(
+  query: QueryFilter | ((...params: P) => QueryFilter),
 ): QueryKeysClassification {
   let complexQuery = false;
   if (query && typeof query === 'object') {
@@ -75,7 +76,7 @@ export function classifyQueryKeys(
   }
 
   // map params to objects, used to compare by reference without risk of ambiguous comparison
-  const params = Array(query.length).fill(null).map(() => ({}));
+  const params = Array(query.length).fill(null).map(() => ({})) as P;
   query = query(...params);
 
   // recursively search query object for parameters (empty objects)

@@ -65,16 +65,19 @@ async function seed() {
   ]);
 }
 
-const Thingy = new CachedQuery<HelloDocument>(mondis, {
+const Thingy1 = new CachedQuery<HelloDocument, [string]>(mondis, {
   model: 'Hello',
-  query: (kind: string) => ({ kind }),
+  query: (kind) => ({ kind }),
   populate: [{ path: 'friend' }],
+});
+
+const Thingy2 = new CachedQuery<HelloDocument>(mondis, {
+  model: 'Hello',
+  query: { kind: 'car' },
 });
 
 async function main() {
   await seed();
-  const res1 = await Thingy.exec({ params: ['car'] });
-  console.log(res1);
 }
 
 main().then(() => process.exit(0));

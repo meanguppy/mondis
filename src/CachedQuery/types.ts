@@ -1,22 +1,24 @@
 import type { QueryOptions, SortOrder, Types } from 'mongoose';
 
-export type MongooseProjection = Record<string, unknown>;
+export type QueryFilter = Record<string, unknown>;
+
+export type QueryProjection = Record<string, unknown>;
 
 // stricter version of mongoose.PopulateOptions
-export type MongoosePopulation = {
+export type QueryPopulation = {
   path: string;
-  select?: MongooseProjection;
+  select?: QueryProjection;
   match?: unknown;
   model?: string;
   options?: QueryOptions;
   perDocumentLimit?: number;
   strictPopulate?: boolean;
-  populate?: MongoosePopulation[];
+  populate?: QueryPopulation[];
   justOne?: boolean;
   transform?: (doc: unknown, id: unknown) => unknown;
 };
 
-export type MongooseSortConfig = string | { [key: string]: SortOrder };
+export type QuerySortOrder = string | { [key: string]: SortOrder };
 
 export type QueryKeysClassification = {
   staticKeys: Record<string, unknown>;

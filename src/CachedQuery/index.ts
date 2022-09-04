@@ -1,9 +1,10 @@
 import { serialize, deserialize } from 'bson';
 import type Mondis from '../mondis';
 import type {
-  MongoosePopulation,
-  MongooseProjection,
-  MongooseSortConfig,
+  QueryFilter,
+  QueryPopulation,
+  QueryProjection,
+  QuerySortOrder,
   QueryKeysClassification,
 } from './types';
 import {
@@ -12,8 +13,6 @@ import {
   jsonHash,
   skipAndLimit,
 } from './lib';
-
-type Match = Record<string, unknown>;
 
 type QueryExecOpts<T> = {
   skip?: number;
@@ -31,11 +30,11 @@ type InputExecOpts<T, P extends unknown[]> =
 type CachedQueryConfig<P extends unknown[]> = {
   model: string;
   query: [P] extends [never]
-    ? Match
-    : (...params: P) => Match;
-  select?: MongooseProjection;
-  populate?: MongoosePopulation[];
-  sort?: MongooseSortConfig | null;
+    ? QueryFilter
+    : (...params: P) => QueryFilter;
+  select?: QueryProjection;
+  populate?: QueryPopulation[];
+  sort?: QuerySortOrder | null;
   cacheCount?: number;
   unique?: boolean;
   invalidateOnInsert?: boolean;
@@ -44,13 +43,13 @@ type CachedQueryConfig<P extends unknown[]> = {
 };
 
 class ParsedOptions<T> {
-  query: Match;
+  query: QueryFilter;
 
   key: string;
 
   exec: QueryExecOpts<T>;
 
-  constructor(query: Match, key: string, exec: QueryExecOpts<T>) {
+  constructor(query: QueryFilter, key: string, exec: QueryExecOpts<T>) {
     this.query = query;
     this.key = key;
     this.exec = exec;
@@ -283,12 +282,13 @@ class CachedQuery<T, P extends unknown[] = never> {
    */
   get hash() {
     if (!this._hash) {
-      let { query } = this.config;
-      if (typeof query === 'function') {
+      const { query } = this.config;
+      if (typeof query === 'object') {
+        this._hash = jsonHash(this.config);
+      } else {
         const params = Array(query.length).fill(null).map((_v, i) => `$CQP${i}$`) as P;
-        query = query(...params);
+        this._hash = jsonHash({ ...this.config, query: query(...params) });
       }
-      this._hash = jsonHash({ ...this.config, query });
     }
     return this._hash;
   }
@@ -296,7 +296,7 @@ class CachedQuery<T, P extends unknown[] = never> {
   get classification() {
     if (!this._classification) {
       const { query } = this.config;
-      this._classification = classifyQueryKeys(query);
+      this._classification = classifyQueryKeys<P>(query);
     }
     return this._classification;
   }
