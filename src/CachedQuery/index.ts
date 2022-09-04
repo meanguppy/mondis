@@ -60,11 +60,7 @@ class ParsedOptions<T> {
   }
 
   merged(exec: QueryExecOpts<T>) {
-    return new ParsedOptions(
-      this.query,
-      this.key,
-      { ...this.exec, ...exec },
-    );
+    return new ParsedOptions(this.query, this.key, { ...this.exec, ...exec });
   }
 }
 
@@ -111,6 +107,7 @@ class CachedQuery<T, P extends unknown[] = never> {
     if (expectNumParams !== params.length) {
       throw Error(`Invalid number of params passed: expected ${expectNumParams}, got ${params.length}`);
     }
+    // TODO: consider replacing JSON with something else, some types cannot be represented.
     const paramsStr = JSON.stringify(params);
     return `q:${hash}${paramsStr}`;
   }
@@ -181,7 +178,7 @@ class CachedQuery<T, P extends unknown[] = never> {
     // query is outside cacheable skip/limit, fall back to mongo query and do not cache.
     // note: filter not handled here because filterable queries require cacheCount=Infinity
     if ((cacheCount < Infinity && limit === undefined) || (limit && (limit + skip) > cacheCount)) {
-      return (await this.execMongo(opts)) as T[];
+      return this.execMongo(opts) as Promise<T[]>;
     }
     let result: undefined | T[];
     const { key: cacheKey } = opts;
@@ -226,7 +223,7 @@ class CachedQuery<T, P extends unknown[] = never> {
       const { skip, limit } = opts.exec;
       // note: if applicable, the filter func is already applied to fullResult.
       const fullResult = await this.exec(opts.merged({ skip: 0, limit: undefined }));
-      const result = skipAndLimit<T>(fullResult, skip, limit);
+      const result = skipAndLimit(fullResult, skip, limit);
       return [
         result,
         fullResult.length,

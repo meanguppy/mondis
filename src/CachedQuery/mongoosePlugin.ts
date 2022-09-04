@@ -137,9 +137,9 @@ export default function bindPlugin(target: CacheEffectReceiver) {
     }
 
     function preInsertMany(this: Model<unknown>, next: () => void, input: unknown) {
+      const items: unknown[] = Array.isArray(input) ? input : [input];
       // TODO: This stage is pre-validation, tricky to work with:
-      // Some keys might be missing, or some docs could be rejected entirely.
-      // const items: unknown[] = Array.isArray(input) ? input : [input];
+      // Default keys are not yet assigned, and some docs could be rejected entirely.
       next();
     }
 
