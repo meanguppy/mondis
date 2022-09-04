@@ -63,12 +63,12 @@ const DOCS = { document: true, query: false } as const;
 const QUERIES = { document: false, query: true } as const;
 
 type CacheEffectReceiver = {
-  notifyEffect(evt: CacheEffect): unknown;
+  onCacheEffect(evt: CacheEffect): unknown;
 };
 
 export default function bindPlugin(target: CacheEffectReceiver) {
   function effect(evt: CacheEffect) {
-    target.notifyEffect(evt);
+    target.onCacheEffect(evt);
   }
   return function mondisPlugin(schema: Schema) {
     function preDocSave(this: DocumentWithId) {

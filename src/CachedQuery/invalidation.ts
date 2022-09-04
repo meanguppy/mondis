@@ -1,25 +1,32 @@
-import type CachedQuery from '.';
-import type { HasObjectId } from './types';
+import type Mondis from '../mondis';
+import type CachedQuery from './index';
+import type {
+  CacheEffect,
+  HasObjectId,
+} from './types';
 
 type InsertInvalidation =
   | { key: string }
   | { set: string }
   | null;
 
-export function union<T>(a: T[], b: T[]) {
-  return Array.from(new Set([...a, ...b]));
+function union<T>(a: T[] | Set<T>, b: T[] | Set<T>) {
+  const result = new Set<T>();
+  a.forEach((val) => result.add(val));
+  b.forEach((val) => result.add(val));
+  return Array.from(result);
 }
 
-export function okForComparison(val: unknown) {
+function okForComparison(val: unknown) {
   const t = (typeof val);
   return (val === null || t !== 'object') && t !== 'function';
 }
 
 /**
- * Returns the cache keys that need to be invalidated when an insert event occurs.
+ * Returns the cache keys that need to be invalidated when an insert effect occurs.
  */
-export function getInsertInvalidation(
-  cq: CachedQuery<unknown>,
+function getInsertInvalidation(
+  cq: CachedQuery<unknown, unknown[]>,
   modelName: string,
   doc: HasObjectId,
 ): InsertInvalidation {
@@ -48,78 +55,106 @@ export function getInsertInvalidation(
   return { key: cq.getCacheKey(params) };
 }
 
-// export function collectInsertInvalidations<T extends Record<string, unknown>>(
-//   model: string,
-//   doc: T,
-// ) {
-//   const keys = [];
-//   const sets = [];
-//   allQueries.forEach((query) => {
-//     const info = getInsertInvalidation(query, model, doc);
-//     if (!info) return;
-//     if (info.key) keys.push(info.key);
-//     if (info.set) sets.push(info.set);
-//   });
-//   return { keys, sets };
-// }
-
-export function parseParamsFromQueryKey(key: string) {
+function parseParamsFromQueryKey(key: string) {
   const result = key.match(/^q:[^[]+(.+?)$/);
   try {
     const match = result && result[1];
-    if (match) {
-      return JSON.parse(match) as unknown[];
-    }
+    if (match) return JSON.parse(match) as unknown[];
   } catch (err) {
     // logger.warn({ err, tag: 'CACHE_INVALIDATION_ERROR' }, 'Failed to parse JSON');
   }
   return [];
 }
 
-export function findCachedQueryByKey(key: string, allQueries: CachedQuery<unknown>[]) {
-  const match = key.match(/^q:(.*?)\[/);
-  if (match && match[1]) {
-    const found = allQueries.find((cq) => cq.hash === match[1]);
-    if (found) return found;
-  }
-  return null;
-}
+export default class InvalidationHandler {
+  context: Mondis;
 
-// export async function invalidate(
-//   ctx: Mondis,
-//   allQueries: CachedQuery<unknown>[],
-//   keys: string[],
-//   rehydrate = true,
-// ) {
-//   if (!keys.length) return;
-//
-//   const { redis } = ctx;
-//   const multi = redis.multi();
-//   keys.forEach((key) => multi.call('delquery', key));
-//   const results = await multi.exec();
-//
-//   if (!rehydrate || !results) return;
-//
-//   const callables: Array<() => Promise<void>> = [];
-//   results.forEach((didExist, index) => {
-//     const key = keys[index];
-//     if (!didExist || !key) return; // key didnt exist on cache, do not rehydrate
-//     const query = findCachedQueryByKey(key, allQueries);
-//     if (!query || !query.rehydrate) return;
-//
-//     const params = parseParamsFromQueryKey(key);
-//     callables.push(async () => {
-//       try {
-//         await query.exec({ params, limit: query.cacheCount, skipCache: true });
-//       } catch (err) {
-//         // logger
-//       }
-//     });
-//   });
-//
-//   // if there are no queries to rehydrate, exit early
-//   if (!callables.length) return;
-//
-//   // start and await all promises
-//   await Promise.all(callables.map((func) => func()));
-// }
+  constructor(context: Mondis) {
+    this.context = context;
+  }
+
+  // TODO: add queueing mechanism for optimized batching
+  onCacheEffect(effect: CacheEffect) {
+    if (effect.op === 'insert') this.doInsertInvalidation(effect);
+    if (effect.op === 'remove') this.doRemoveInvalidation(effect);
+  }
+
+  async doInsertInvalidation(effect: CacheEffect & { op: 'insert' }) {
+    const { redis } = this.context;
+    const { modelName, docs } = effect;
+
+    const { keys, sets } = this.collectInsertInvalidations(modelName, docs);
+    const expandedSets = sets.size ? await redis.sunion(...sets) : [];
+    const invalidatedKeys = await this.invalidate(union(keys, expandedSets));
+  }
+
+  async doRemoveInvalidation(effect: CacheEffect & { op: 'remove' }) {
+    const { redis } = this.context;
+    const { ids } = effect;
+    // TODO: handle in bulk
+    const dependentKeys = await redis.smembers(`obj:${String(ids[0])}`);
+    const invalidatedKeys = await this.invalidate(dependentKeys);
+  }
+
+  async invalidate(keys: string[]): Promise<string[]> {
+    if (!keys.length) return [];
+
+    const { redis } = this.context;
+    const multi = redis.multi();
+    keys.forEach((key) => multi.delquery(key));
+    const results = await multi.exec();
+    if (!results || !results.length) return [];
+
+    const invalidatedKeys: string[] = [];
+    results.forEach((didExist, index) => {
+      const key = keys[index];
+      if (didExist && key) invalidatedKeys.push(key);
+    });
+
+    return invalidatedKeys;
+  }
+
+  async rehydrate(keys: string[]) {
+    if (!keys.length) return;
+
+    const promises = keys.map(async (key) => {
+      const query = this.findCachedQueryByKey(key);
+      if (!query || !query.config.rehydrate) return;
+
+      const params = parseParamsFromQueryKey(key);
+      await query.exec({ params, limit: query.config.cacheCount, skipCache: true });
+    });
+
+    await Promise.all(promises);
+  }
+
+  collectInsertInvalidations(model: string, docs: HasObjectId[]) {
+    const keys = new Set<string>();
+    const sets = new Set<string>();
+    const { allCachedQueries } = this;
+    allCachedQueries.forEach((query) => {
+      docs.forEach((doc) => {
+        const info = getInsertInvalidation(query, model, doc);
+        if (!info) return;
+        if ('key' in info) keys.add(info.key);
+        if ('set' in info) sets.add(info.set);
+      });
+    });
+    return { keys, sets };
+  }
+
+  findCachedQueryByKey(key: string) {
+    const { allCachedQueries } = this;
+    const match = key.match(/^q:(.*?)\[/);
+    if (match && match[1]) {
+      const found = allCachedQueries.find((cq) => cq.hash === match[1]);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  get allCachedQueries(): CachedQuery<unknown, unknown[]>[] {
+    // TODO: implement
+    return [];
+  }
+}

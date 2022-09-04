@@ -1,7 +1,7 @@
 import type Redis from 'ioredis';
 import type { Result, Callback } from 'ioredis';
 import type { Mongoose } from 'mongoose';
-import type { CacheEffect } from './CachedQuery/types';
+import InvalidationHandler from './CachedQuery/invalidation';
 import bindPlugin from './CachedQuery/mongoosePlugin';
 
 declare module 'ioredis' {
@@ -65,7 +65,10 @@ class Mondis {
 
   private _mongoose?: Mongoose;
 
+  private _invalidator: InvalidationHandler;
+
   constructor(config?: MondisConfiguration) {
+    this._invalidator = new InvalidationHandler(this);
     this.init(config ?? {});
   }
 
@@ -80,12 +83,8 @@ class Mondis {
     if (mongoose) this._mongoose = mongoose;
   }
 
-  notifyEffect(effect: CacheEffect) {
-    console.log('GOT EFFECT', effect);
-  }
-
   plugin() {
-    return bindPlugin(this);
+    return bindPlugin(this._invalidator);
   }
 
   get redis() {
