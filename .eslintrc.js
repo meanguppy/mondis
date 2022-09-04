@@ -29,6 +29,7 @@ module.exports = {
     'import/prefer-default-export': 0,
     'no-param-reassign': 0,
     'no-underscore-dangle': 0,
+    'max-classes-per-file': 0,
     'object-curly-newline': 0,
   },
   ignorePatterns: ['dist', '**/*.js'],

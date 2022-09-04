@@ -13,9 +13,26 @@ import {
   skipAndLimit,
 } from './lib';
 
-type CachedQueryConfig = {
+type Match = Record<string, unknown>;
+
+type QueryExecOpts<T> = {
+  skip?: number;
+  limit?: number | undefined;
+  filter?: (doc: T) => boolean;
+  skipCache?: boolean;
+};
+
+type InputExecOpts<T, P extends unknown[]> =
+  | ParsedOptions<T>
+  | ([P] extends [never]
+    ? (void | QueryExecOpts<T>)
+    : (P | QueryExecOpts<T> & { params: P }));
+
+type CachedQueryConfig<P extends unknown[]> = {
   model: string;
-  query: Record<string, unknown> | ((...params: unknown[]) => Record<string, unknown>);
+  query: [P] extends [never]
+    ? Match
+    : (...params: P) => Match;
   select?: MongooseProjection;
   populate?: MongoosePopulation[];
   sort?: MongooseSortConfig | null;
@@ -26,26 +43,42 @@ type CachedQueryConfig = {
   rehydrate?: boolean;
 };
 
-type QueryExecOpts<T> = {
-  params?: unknown[] | undefined;
-  limit?: number;
-  skip?: number;
-  filter?: (doc: T) => boolean;
-  skipCache?: boolean;
-};
+class ParsedOptions<T> {
+  query: Match;
 
-type InputExecOpts<T> = unknown[] | QueryExecOpts<T>;
+  key: string;
 
-class CachedQuery<T> {
+  exec: QueryExecOpts<T>;
+
+  constructor(query: Match, key: string, exec: QueryExecOpts<T>) {
+    this.query = query;
+    this.key = key;
+    this.exec = exec;
+  }
+
+  fresh(exec: QueryExecOpts<T>) {
+    return new ParsedOptions(this.query, this.key, exec);
+  }
+
+  merged(exec: QueryExecOpts<T>) {
+    return new ParsedOptions(
+      this.query,
+      this.key,
+      { ...this.exec, ...exec },
+    );
+  }
+}
+
+class CachedQuery<T, P extends unknown[] = never> {
   context: Mondis;
 
-  config: Required<CachedQueryConfig>;
+  config: Required<CachedQueryConfig<P>>;
 
   private _hash?: string;
 
   private _classification?: QueryKeysClassification;
 
-  constructor(context: Mondis, config: CachedQueryConfig) {
+  constructor(context: Mondis, config: CachedQueryConfig<P>) {
     this.context = context;
     const {
       model,
@@ -87,12 +120,11 @@ class CachedQuery<T> {
     return `all:${this.hash}`;
   }
 
-  private buildQuery(opts?: InputExecOpts<T>) {
+  private buildQuery(input: InputExecOpts<T, P>) {
     const { mongoose } = this.context;
-    const { model, query, unique, select, sort, populate } = this.config;
-    const { params = [], skip, limit } = this.parseOpts(opts);
-    const queryObj = (typeof query === 'object') ? query : query(...params);
-    const q = mongoose.model<T>(model).find(queryObj);
+    const { model, unique, select, sort, populate } = this.config;
+    const { query, exec: { skip, limit } } = this.parseOpts(input);
+    const q = mongoose.model<T>(model).find(query);
     if (unique) {
       q.limit(1);
     } else {
@@ -105,13 +137,13 @@ class CachedQuery<T> {
     return q;
   }
 
-  async execMongo(opts?: InputExecOpts<T>) {
-    return this.buildQuery(opts).lean().exec();
+  async execMongo(input: InputExecOpts<T, P>) {
+    return this.buildQuery(input).lean().exec();
   }
 
-  async countMongo(opts?: InputExecOpts<T>) {
-    const { skip, limit, ...rest } = this.parseOpts(opts);
-    return this.buildQuery(rest).countDocuments();
+  async countMongo(input: InputExecOpts<T, P>) {
+    const full = this.parseOpts(input).merged({ skip: 0, limit: undefined });
+    return this.buildQuery(full).countDocuments();
   }
 
   /**
@@ -142,19 +174,18 @@ class CachedQuery<T> {
     }
   }
 
-  async exec(opts?: InputExecOpts<T>): Promise<T[]> {
-    opts = this.parseOpts(opts);
+  async exec(input: InputExecOpts<T, P>): Promise<T[]> {
+    const opts = this.parseOpts(input);
     const { redis } = this.context;
     const { cacheCount, unique } = this.config;
-    const { params, skip = 0, limit, skipCache = false, filter } = opts;
-
+    const { skip = 0, limit, skipCache = false, filter } = opts.exec;
     // query is outside cacheable skip/limit, fall back to mongo query and do not cache.
     // note: filter not handled here because filterable queries require cacheCount=Infinity
     if ((cacheCount < Infinity && limit === undefined) || (limit && (limit + skip) > cacheCount)) {
       return (await this.execMongo(opts)) as T[];
     }
     let result: undefined | T[];
-    const cacheKey = this.getCacheKey(params);
+    const { key: cacheKey } = opts;
     if (!skipCache) {
       try {
         const bson = await redis.hgetBuffer(cacheKey, 'value');
@@ -166,7 +197,7 @@ class CachedQuery<T> {
       }
     }
     if (!result) {
-      result = await this.execMongo({ params, limit: cacheCount }) as T[];
+      result = await this.execMongo(opts.fresh({ limit: cacheCount })) as T[];
       /* If a unique query has no results, do not cache the empty array.
        * The matching item could still be inserted at a later time, and because
        * unique queries do not invalidate upon document insert, that event
@@ -179,23 +210,23 @@ class CachedQuery<T> {
     return skipAndLimit(result, skip, limit);
   }
 
-  async execOne(opts?: InputExecOpts<T>): Promise<T | null> {
-    opts = this.parseOpts(opts);
-    const result = await this.exec({ ...opts, limit: 1 });
+  async execOne(input: InputExecOpts<T, P>): Promise<T | null> {
+    const limitOne = this.parseOpts(input).merged({ limit: 1 });
+    const result = await this.exec(limitOne);
     return result[0] ?? null;
   }
 
-  async execWithCount(opts?: InputExecOpts<T>): Promise<[T[], number]> {
-    opts = this.parseOpts(opts);
+  async execWithCount(input: InputExecOpts<T, P>): Promise<[T[], number]> {
+    const opts = this.parseOpts(input);
     const { cacheCount } = this.config;
     /* If cacheCount is infinity, we know all the documents matching the query
      * are already stored on cache. We already have to grab and splice it,
      * so we might as well use the array length instead of another lookup.
      */
     if (cacheCount === Infinity) {
-      const { skip, limit, ...rest } = opts;
+      const { skip, limit } = opts.exec;
       // note: if applicable, the filter func is already applied to fullResult.
-      const fullResult = await this.exec({ ...rest, skip: 0 });
+      const fullResult = await this.exec(opts.merged({ skip: 0, limit: undefined }));
       const result = skipAndLimit<T>(fullResult, skip, limit);
       return [
         result,
@@ -208,16 +239,14 @@ class CachedQuery<T> {
     ]);
   }
 
-  async count(opts?: InputExecOpts<T>) {
-    opts = this.parseOpts(opts);
+  async count(input: InputExecOpts<T, P>) {
+    const opts = this.parseOpts(input);
     const { redis } = this.context;
-    const { params = [], filter, skipCache = false } = opts;
+    const { key: cacheKey, exec: { filter, skipCache = false } } = opts;
     if (filter) {
-      const { skip, limit, ...rest } = opts;
-      const fullResult = await this.exec({ ...rest, skip: 0 });
+      const fullResult = await this.exec(opts.merged({ skip: 0, limit: undefined }));
       return fullResult.length;
     }
-    const cacheKey = this.getCacheKey(params);
     let count;
     if (!skipCache) {
       try {
@@ -227,7 +256,7 @@ class CachedQuery<T> {
       }
     }
     if (!count) {
-      count = await this.countMongo(params);
+      count = await this.countMongo(opts.fresh({}));
       try {
         await redis.hset(cacheKey, 'count', count);
       } catch (err) {
@@ -237,12 +266,15 @@ class CachedQuery<T> {
     return typeof count === 'number' ? count : parseInt(count, 10);
   }
 
-  private parseOpts(opts?: InputExecOpts<T>): QueryExecOpts<T> {
-    if (!opts) return {};
-    if (Array.isArray(opts)) return { params: opts };
-    const { cacheCount } = this.config;
-    if (opts.filter && cacheCount !== Infinity) throw Error('Filter can only be used with non-unique queries with cacheCount=Infinity');
-    return opts;
+  private parseOpts(input: InputExecOpts<T, P>) {
+    if (input instanceof ParsedOptions) return input;
+    const { query } = this.config;
+    const exec: QueryExecOpts<T> = (!input || Array.isArray(input)) ? {} : input;
+    if (typeof query === 'function') {
+      const params = Array.isArray(input) ? (input as P) : (input as { params: P }).params;
+      return new ParsedOptions(query(...params), this.getCacheKey(params), exec);
+    }
+    return new ParsedOptions(query, this.getCacheKey([]), exec);
   }
 
   /* Generates a hash of the config object used to create this CachedQuery.
@@ -253,7 +285,7 @@ class CachedQuery<T> {
     if (!this._hash) {
       let { query } = this.config;
       if (typeof query === 'function') {
-        const params = Array(query.length).fill(null).map((_v, i) => `$CQP${i}$`);
+        const params = Array(query.length).fill(null).map((_v, i) => `$CQP${i}$`) as P;
         query = query(...params);
       }
       this._hash = jsonHash({ ...this.config, query });
