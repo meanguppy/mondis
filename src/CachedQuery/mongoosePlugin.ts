@@ -137,9 +137,12 @@ export default function bindPlugin(target: CacheEffectReceiver) {
     }
 
     function preInsertMany(this: Model<unknown>, next: () => void, input: unknown) {
-      const items: unknown[] = Array.isArray(input) ? input : [input];
-      // TODO: This stage is pre-validation, tricky to work with:
-      // Default keys are not yet assigned, and some docs could be rejected entirely.
+      // Unfortunately this middleware executes before the Documents are constructed,
+      // meaning default value are missing. Create document only to pass to invalidation
+      const { modelName } = this;
+      const docs = (Array.isArray(input) ? input : [input])
+        .map((item: unknown) => new this(item).toObject() as HasObjectId);
+      effect({ op: 'insert', modelName, docs });
       next();
     }
 
