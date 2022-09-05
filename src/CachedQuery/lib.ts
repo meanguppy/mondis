@@ -67,8 +67,8 @@ export function skipAndLimit<T>(array: T[], skip?: number, limit?: number) {
  *   Which keys are static and which are configurable?
  *   Is any configurable query complex (not an equality comparison)?
  */
-export function classifyQueryKeys<P extends unknown[]>(
-  query: QueryFilter | ((...params: P) => QueryFilter),
+export function classifyQueryKeys<T, P extends unknown[]>(
+  query: QueryFilter<T> | ((...params: P) => QueryFilter<T>),
 ): QueryKeysClassification {
   let complexQuery = false;
   if (query && typeof query === 'object') {

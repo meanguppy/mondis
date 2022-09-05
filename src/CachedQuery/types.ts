@@ -1,6 +1,12 @@
-import type { QueryOptions, SortOrder, Types } from 'mongoose';
+import type {
+  QueryOptions,
+  SortOrder,
+  Types,
+} from 'mongoose';
 
-export type QueryFilter = Record<string, unknown>;
+export type QueryFilter<T = unknown> = {
+  [P in keyof T]?: unknown;
+};
 
 export type QueryProjection = Record<string, unknown>;
 

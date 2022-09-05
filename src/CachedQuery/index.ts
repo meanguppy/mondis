@@ -28,11 +28,11 @@ type InputExecOpts<T, P extends unknown[]> =
     ? (void | QueryExecOpts<T>)
     : (P | QueryExecOpts<T> & { params: P }));
 
-export type CachedQueryConfig<P extends unknown[]> = {
+export type CachedQueryConfig<T, P extends unknown[]> = {
   model: string;
   query: [P] extends [never]
-    ? QueryFilter
-    : (...params: P) => QueryFilter;
+    ? QueryFilter<T>
+    : (...params: P) => QueryFilter<T>;
   select?: QueryProjection;
   populate?: QueryPopulation[];
   sort?: QuerySortOrder | null;
@@ -44,13 +44,13 @@ export type CachedQueryConfig<P extends unknown[]> = {
 };
 
 class ParsedOptions<T> {
-  query: QueryFilter;
+  query: QueryFilter<T>;
 
   key: string;
 
   exec: QueryExecOpts<T>;
 
-  constructor(query: QueryFilter, key: string, exec: QueryExecOpts<T>) {
+  constructor(query: QueryFilter<T>, key: string, exec: QueryExecOpts<T>) {
     this.query = query;
     this.key = key;
     this.exec = exec;
@@ -71,13 +71,13 @@ class CachedQuery<
 > {
   context: Mondis;
 
-  config: Required<CachedQueryConfig<P>>;
+  config: Required<CachedQueryConfig<T, P>>;
 
   private _hash?: string;
 
   private _classification?: QueryKeysClassification;
 
-  constructor(context: Mondis, config: CachedQueryConfig<P>) {
+  constructor(context: Mondis, config: CachedQueryConfig<T, P>) {
     this.context = context;
     const {
       model,
@@ -274,7 +274,7 @@ class CachedQuery<
       const params = Array.isArray(input) ? (input as P) : (input as { params: P }).params;
       return new ParsedOptions(query(...params), this.getCacheKey(params), exec);
     }
-    return new ParsedOptions(query, this.getCacheKey([]), exec);
+    return new ParsedOptions(query as QueryFilter<T>, this.getCacheKey([]), exec);
   }
 
   /* Generates a hash of the config object used to create this CachedQuery.
@@ -297,7 +297,7 @@ class CachedQuery<
   get classification() {
     if (!this._classification) {
       const { query } = this.config;
-      this._classification = classifyQueryKeys<P>(query);
+      this._classification = classifyQueryKeys<T, P>(query);
     }
     return this._classification;
   }
