@@ -27,7 +27,7 @@ type InputExecOpts<T, P extends unknown[]> =
     ? (void | QueryExecOpts<T>)
     : (P | QueryExecOpts<T> & { params: P }));
 
-type CachedQueryConfig<P extends unknown[]> = {
+export type CachedQueryConfig<P extends unknown[]> = {
   model: string;
   query: [P] extends [never]
     ? QueryFilter
@@ -64,7 +64,7 @@ class ParsedOptions<T> {
   }
 }
 
-class CachedQuery<T, P extends unknown[] = never> {
+class CachedQuery<T = unknown, P extends unknown[] = unknown[]> {
   context: Mondis;
 
   config: Required<CachedQueryConfig<P>>;

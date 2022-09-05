@@ -1,6 +1,7 @@
 import type Redis from 'ioredis';
 import type { Result, Callback } from 'ioredis';
 import type { Mongoose } from 'mongoose';
+import CachedQuery, { CachedQueryConfig } from './CachedQuery';
 import InvalidationHandler from './CachedQuery/invalidation';
 import bindPlugin from './CachedQuery/mongoosePlugin';
 
@@ -42,7 +43,7 @@ const commands = {
     lua: `
       local qkey = KEYS[1]
       local depends = redis.call("HGET", qkey, "depends")
-      if depends == nil then
+      if depends == false then
         return 0 end
       local allKey = "all:"..string.sub(qkey, 3, 18)
       redis.call("SREM", allKey, qkey)
@@ -67,8 +68,11 @@ class Mondis {
 
   private _invalidator: InvalidationHandler;
 
+  allCachedQueries: CachedQuery<unknown, unknown[]>[];
+
   constructor(config?: MondisConfiguration) {
     this._invalidator = new InvalidationHandler(this);
+    this.allCachedQueries = [];
     this.init(config ?? {});
   }
 
@@ -85,6 +89,12 @@ class Mondis {
 
   plugin() {
     return bindPlugin(this._invalidator);
+  }
+
+  CachedQuery<T, P extends unknown[] = never>(config: CachedQueryConfig<P>) {
+    const cachedQuery = new CachedQuery<T, P>(this, config);
+    this.allCachedQueries.push(cachedQuery as CachedQuery<unknown, unknown[]>);
+    return cachedQuery;
   }
 
   get redis() {

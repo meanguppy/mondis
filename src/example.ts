@@ -1,7 +1,6 @@
 import mongoose, { Schema, Types } from 'mongoose';
 import Redis from 'ioredis';
 import Mondis from './mondis';
-import CachedQuery from './CachedQuery';
 
 const redis = new Redis(6379, '127.0.0.1');
 const mondis = new Mondis({ redis, mongoose });
@@ -45,7 +44,6 @@ const World = mongoose.model('World', WorldSchema);
 async function seed() {
   await Promise.all([
     mongoose.connect('mongodb://localhost/cq-dev'),
-    redis.flushall(),
     Hello.deleteMany({}),
     World.deleteMany({}),
   ]);
@@ -55,29 +53,35 @@ async function seed() {
     { name: 'three' },
     { name: 'four' },
   ]);
-  await Hello.insertMany([
-    { name: 'frank', kind: 'car' },
-    { name: 'henry', kind: 'truck' },
-    { name: 'oliver', kind: 'plane' },
-    { name: 'gary', kind: 'plane' },
-    { name: 'franklin', kind: 'truck' },
-    { name: 'john', kind: 'car' },
-  ]);
+  // TODO: need to solution for insertMany
+  await Promise.all(
+    [{ name: 'frank', kind: 'car' },
+      { name: 'henry', kind: 'truck' },
+      { name: 'oliver', kind: 'plane' },
+      { name: 'gary', kind: 'plane' },
+      { name: 'franklin', kind: 'truck' },
+      { name: 'john', kind: 'car' },
+    ].map((o) => Hello.create(o)),
+  );
 }
 
-const Thingy1 = new CachedQuery<HelloDocument, [string]>(mondis, {
+const Thingy1 = mondis.CachedQuery<HelloDocument, [string]>({
   model: 'Hello',
   query: (kind) => ({ kind }),
   populate: [{ path: 'friend' }],
 });
 
-const Thingy2 = new CachedQuery<HelloDocument>(mondis, {
+const Thingy2 = mondis.CachedQuery<HelloDocument>({
   model: 'Hello',
   query: { kind: 'car' },
 });
 
 async function main() {
   await seed();
+  console.log(await Thingy1.exec(['car']));
+  await new Promise((res) => {
+    setTimeout(res, 1000);
+  });
 }
 
 main().then(() => process.exit(0));

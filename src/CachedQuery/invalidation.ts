@@ -1,3 +1,4 @@
+import type { RedisCommander } from 'ioredis';
 import type Mondis from '../mondis';
 import type CachedQuery from './index';
 import type {
@@ -10,10 +11,11 @@ type InsertInvalidation =
   | { set: string }
   | null;
 
-function union<T>(a: T[] | Set<T>, b: T[] | Set<T>) {
+function union<T>(...targets: (T[] | Set<T>)[]) {
   const result = new Set<T>();
-  a.forEach((val) => result.add(val));
-  b.forEach((val) => result.add(val));
+  targets.forEach((target) => {
+    target.forEach((val) => result.add(val));
+  });
   return Array.from(result);
 }
 
@@ -22,11 +24,22 @@ function okForComparison(val: unknown) {
   return (val === null || t !== 'object') && t !== 'function';
 }
 
+type RedisMultiResult = Awaited<ReturnType<RedisCommander['exec']>>;
+function flattenRedisMulti(input: RedisMultiResult) {
+  if (!input) return [];
+  const result: unknown[] = [];
+  input.forEach(([err, val]) => {
+    if (err !== null) return;
+    result.push(val);
+  });
+  return result;
+}
+
 /**
  * Returns the cache keys that need to be invalidated when an insert effect occurs.
  */
 function getInsertInvalidation(
-  cq: CachedQuery<unknown, unknown[]>,
+  cq: CachedQuery,
   modelName: string,
   doc: HasObjectId,
 ): InsertInvalidation {
@@ -73,7 +86,8 @@ export default class InvalidationHandler {
     this.context = context;
   }
 
-  // TODO: add queueing mechanism for optimized batching
+  // TODO: add queueing mechanism for optimized invalidation batching:
+  // remove duplicate keys, set invalidations trump keys
   onCacheEffect(effect: CacheEffect) {
     if (effect.op === 'insert') this.doInsertInvalidation(effect);
     if (effect.op === 'remove') this.doRemoveInvalidation(effect);
@@ -91,8 +105,12 @@ export default class InvalidationHandler {
   async doRemoveInvalidation(effect: CacheEffect & { op: 'remove' }) {
     const { redis } = this.context;
     const { ids } = effect;
-    // TODO: handle in bulk
-    const dependentKeys = await redis.smembers(`obj:${String(ids[0])}`);
+    const multi = redis.multi();
+    ids.forEach((id) => multi.smembers(`obj:${String(id)}`));
+    const result = flattenRedisMulti(await multi.exec()) as string[][];
+    if (!result) return;
+
+    const dependentKeys = union(...result);
     const invalidatedKeys = await this.invalidate(dependentKeys);
   }
 
@@ -106,9 +124,10 @@ export default class InvalidationHandler {
     if (!results || !results.length) return [];
 
     const invalidatedKeys: string[] = [];
-    results.forEach((didExist, index) => {
+    results.forEach(([err, didExist], index) => {
+      if (err !== null) return;
       const key = keys[index];
-      if (didExist && key) invalidatedKeys.push(key);
+      if (key && didExist) invalidatedKeys.push(key);
     });
 
     return invalidatedKeys;
@@ -131,7 +150,7 @@ export default class InvalidationHandler {
   collectInsertInvalidations(model: string, docs: HasObjectId[]) {
     const keys = new Set<string>();
     const sets = new Set<string>();
-    const { allCachedQueries } = this;
+    const { allCachedQueries } = this.context;
     allCachedQueries.forEach((query) => {
       docs.forEach((doc) => {
         const info = getInsertInvalidation(query, model, doc);
@@ -144,17 +163,12 @@ export default class InvalidationHandler {
   }
 
   findCachedQueryByKey(key: string) {
-    const { allCachedQueries } = this;
+    const { allCachedQueries } = this.context;
     const match = key.match(/^q:(.*?)\[/);
     if (match && match[1]) {
       const found = allCachedQueries.find((cq) => cq.hash === match[1]);
       if (found) return found;
     }
     return null;
-  }
-
-  get allCachedQueries(): CachedQuery<unknown, unknown[]>[] {
-    // TODO: implement
-    return [];
   }
 }
