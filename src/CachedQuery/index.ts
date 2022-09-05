@@ -1,6 +1,7 @@
 import { serialize, deserialize } from 'bson';
 import type Mondis from '../mondis';
 import type {
+  HasObjectId,
   QueryFilter,
   QueryPopulation,
   QueryProjection,
@@ -64,7 +65,10 @@ class ParsedOptions<T> {
   }
 }
 
-class CachedQuery<T = unknown, P extends unknown[] = unknown[]> {
+class CachedQuery<
+  T extends HasObjectId = HasObjectId,
+  P extends unknown[] = unknown[],
+> {
   context: Mondis;
 
   config: Required<CachedQueryConfig<P>>;

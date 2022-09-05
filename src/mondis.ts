@@ -4,6 +4,7 @@ import type { Mongoose } from 'mongoose';
 import CachedQuery, { CachedQueryConfig } from './CachedQuery';
 import InvalidationHandler from './CachedQuery/invalidation';
 import bindPlugin from './CachedQuery/mongoosePlugin';
+import type { HasObjectId } from './CachedQuery/types';
 
 declare module 'ioredis' {
   interface RedisCommander<Context> {
@@ -68,7 +69,7 @@ class Mondis {
 
   private _invalidator: InvalidationHandler;
 
-  allCachedQueries: CachedQuery<unknown, unknown[]>[];
+  allCachedQueries: CachedQuery[];
 
   constructor(config?: MondisConfiguration) {
     this._invalidator = new InvalidationHandler(this);
@@ -91,9 +92,9 @@ class Mondis {
     return bindPlugin(this._invalidator);
   }
 
-  CachedQuery<T, P extends unknown[] = never>(config: CachedQueryConfig<P>) {
+  CachedQuery<T extends HasObjectId, P extends unknown[] = never>(config: CachedQueryConfig<P>) {
     const cachedQuery = new CachedQuery<T, P>(this, config);
-    this.allCachedQueries.push(cachedQuery as CachedQuery<unknown, unknown[]>);
+    this.allCachedQueries.push(cachedQuery as unknown as CachedQuery);
     return cachedQuery;
   }
 
