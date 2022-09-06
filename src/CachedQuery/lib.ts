@@ -64,8 +64,21 @@ export function skipAndLimit<T>(array: T[], skip?: number, limit?: number) {
 
 /**
  * Classifies all keys in the query:
- *   Which keys are static and which are configurable?
- *   Is any configurable query complex (not an equality comparison)?
+ * - Which keys are static and which are configurable?
+ * - Is any configurable query complex (not an equality comparison)?
+ *
+ * It is useful to identify 'complex queries', because they cannot be
+ * looked up via primary key on redis. We must instead invalidate all
+ * cached queries of that type.
+ *
+ * Example: `(minPrice) => ({ price: { $gte: minPrice } })`, exec with `2000`.
+ * The above query would result in a cache key with structure `q:hash[2000]`.
+ * When we see an update on document with `price: 3000`, we cannot produce
+ * a cache key directly, as there are infinite ways to satisfy this query.
+ *
+ * TODO: To better check whether a document will affect a cached query,
+ * we shoud look to support mongo operators like `{ $gt: 50 }`. Note that
+ * this would only be supported on static keys, read above!
  */
 export function classifyQueryKeys<T, P extends unknown[]>(
   query: QueryFilter<T> | ((...params: P) => QueryFilter<T>),
