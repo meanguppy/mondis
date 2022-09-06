@@ -272,9 +272,9 @@ class CachedQuery<
     const exec: QueryExecOpts<T> = (!input || Array.isArray(input)) ? {} : input;
     if (typeof query === 'function') {
       const params = Array.isArray(input) ? (input as P) : (input as { params: P }).params;
-      return new ParsedOptions(query(...params), this.getCacheKey(params), exec);
+      return new ParsedOptions(query(...params) as QueryFilter<T>, this.getCacheKey(params), exec);
     }
-    return new ParsedOptions(query as QueryFilter<T>, this.getCacheKey([]), exec);
+    return new ParsedOptions(query, this.getCacheKey([]), exec);
   }
 
   /* Generates a hash of the config object used to create this CachedQuery.

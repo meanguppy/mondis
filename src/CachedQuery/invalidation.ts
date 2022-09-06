@@ -99,7 +99,7 @@ export default class InvalidationHandler {
 
     const { keys, sets } = this.collectInsertInvalidations(modelName, docs);
     const expandedSets = sets.size ? await redis.sunion(...sets) : [];
-    const invalidatedKeys = await this.invalidate(union(keys, expandedSets));
+    await this.invalidate(union(keys, expandedSets));
   }
 
   async doRemoveInvalidation(effect: CacheEffect & { op: 'remove' }) {
@@ -111,7 +111,7 @@ export default class InvalidationHandler {
     if (!result) return;
 
     const dependentKeys = union(...result);
-    const invalidatedKeys = await this.invalidate(dependentKeys);
+    await this.invalidate(dependentKeys);
   }
 
   async invalidate(keys: string[]): Promise<string[]> {
