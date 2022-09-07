@@ -40,7 +40,12 @@ export function setValue(target: unknown, path: string, value: unknown) {
 }
 
 export function unsetValue(target: unknown, path: string) {
-  walk(target, path, false, (found, key) => { delete found[key]; });
+  let result: unknown;
+  walk(target, path, false, (found, key) => {
+    result = found[key];
+    delete found[key];
+  });
+  return result;
 }
 
 export function getValue(target: unknown, path: string) {
