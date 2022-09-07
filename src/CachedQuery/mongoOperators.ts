@@ -1,7 +1,17 @@
+import type { Query } from 'mongoose';
 import { getValue, setValue, unsetValue, updateValue } from './lib';
 
 type MongoOperators = Record<(typeof operators)[number], Record<string, unknown>>;
 
+/**
+ * Unsupported operators:
+ *  - $pull: requires expression evaluation.
+ * TODO at some stage:
+ *  - $currentDate
+ *  - $bit
+ *  - $pullAll
+ *  - array update modifiers: $each, $position, $slice, $sort
+ */
 const operators = [
   '$inc',
   '$min',
@@ -9,6 +19,7 @@ const operators = [
   '$mul',
   '$rename',
   '$set',
+  '$setOnInsert',
   '$unset',
   '$addToSet',
   '$pop',
@@ -53,6 +64,9 @@ const handlers = {
   },
   $set(target: {}, path: string, val: unknown) {
     setValue(target, path, val);
+  },
+  $setOnInsert() {
+    // No-op for an existing document, this is handled during upsert instead.
   },
   $unset(target: {}, path: string) {
     unsetValue(target, path);
@@ -99,21 +113,68 @@ function isSupportedOperator(name: string): name is typeof operators[number] {
   return operators.includes(name as never);
 }
 
-function parseOperatorsObject(input: Record<string, unknown>): Partial<MongoOperators> {
-  const hasField = Object.keys(input).some((str) => str.charAt(0) !== '$');
-  return hasField ? { $set: input } : input;
+function assertOperatorIsValid(key: string, val: unknown): asserts val is Record<string, unknown> {
+  if (!val || typeof val !== 'object') throw Error(`Invalid operator value for ${key}`);
 }
 
-export function applyUpdates(targets: Array<{}>, input: Record<string, unknown>) {
-  const ops = parseOperatorsObject(input);
-  Object.entries(ops).forEach(([op, paths]) => {
+function parseUpdateQuery(input: MongooseQueryUpdate) {
+  if (!input) return {};
+  if (Array.isArray(input)) throw Error('Updating with aggregation pipeline is not supported');
+  const result: Partial<MongoOperators> = {};
+  function addFieldToSetOp(key: string, val: unknown) {
+    if (!result.$set) result.$set = {};
+    result.$set[key] = val;
+  }
+  Object.entries(input).forEach(([key, val]) => {
+    if (key.charAt(0) !== '$') {
+      addFieldToSetOp(key, val);
+    } else if (isSupportedOperator(key)) {
+      if (!val) return;
+      assertOperatorIsValid(key, val);
+      if (key === '$set') { // handle separately to merge with top-level fields
+        Object.entries(val).forEach(([setKey, setVal]) => {
+          addFieldToSetOp(setKey, setVal);
+        });
+      } else {
+        result[key] = val;
+      }
+    } else {
+      throw Error(`Unsupported update operator ${key}`);
+    }
+  });
+  return result;
+}
+
+function buildUpsertedDocument(filter: Record<string, unknown>, update: Partial<MongoOperators>) {
+  // TODO: implement
+  return {};
+}
+
+type MongooseQueryUpdate = ReturnType<Query<unknown, unknown>['getUpdate']>;
+
+type ApplyUpdatesOptions = {
+  update: MongooseQueryUpdate,
+  filter?: Record<string, unknown>;
+  upsert?: boolean;
+};
+
+export function applyUpdates(targets: Array<{}>, options: ApplyUpdatesOptions) {
+  const { update: rawUpdate, filter = {}, upsert = false } = options;
+  const update = parseUpdateQuery(rawUpdate);
+  if (targets.length === 0) {
+    if (!upsert) return null;
+    return buildUpsertedDocument(filter, update);
+  }
+  Object.entries(update).forEach(([op, paths]) => {
     if (!isSupportedOperator(op)) throw Error(`Unsupported update operator ${op}`);
     const handler = handlers[op];
     Object.entries(paths).forEach(([path, val]) => {
       if (val === undefined) return;
+      if (path.includes('.$')) throw Error('Updating arrays with <field>.$ is unsupported');
       targets.forEach((target) => {
         handler(target, path, val);
       });
     });
   });
+  return null; // no upserted document
 }

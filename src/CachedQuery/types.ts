@@ -32,6 +32,7 @@ export type QueryKeysClassification = {
   complexQuery: boolean;
 };
 
+// TODO: decide whether enforcing ObjectId type is necessary.
 export type HasObjectId = {
   _id: Types.ObjectId;
   [key: string]: unknown;

@@ -1,12 +1,11 @@
-import {
+import type {
   HydratedDocument,
   Model,
   Query,
   Schema,
   Types,
-  UpdateWriteOpResult,
-  Document,
 } from 'mongoose';
+import { applyUpdates } from './mongoOperators';
 import type {
   CacheEffect,
   HasObjectId,
@@ -19,16 +18,20 @@ type QueryExtras<ResType = unknown> =
   & { op: string }
   & { updatedIds?: Types.ObjectId[] };
 
-async function findIds(query: QueryExtras, firstOnly = false) {
+async function findDocs(query: QueryExtras, idOnly = false) {
+  const actualOp = query.op;
+  const firstOnly = actualOp.includes('One');
+  query.op = 'find'; // ensure cursor creation does not fail with op
   const cursor = query.cursor({
     lean: true,
-    projection: '_id',
     ...(firstOnly && { limit: 1 }),
+    ...(idOnly && { projection: '_id' }),
   });
+  query.op = actualOp; // restore actual op
   const result = [];
   // eslint-disable-next-line no-restricted-syntax
   for await (const doc of cursor) {
-    result.push(doc._id);
+    result.push(doc);
   }
   cursor.close();
   return result;
@@ -41,22 +44,11 @@ function getDocumentInfo(doc: DocumentWithId) {
 }
 
 function getQueryInfo(query: QueryExtras) {
-  const { op, model: { modelName } } = query;
-  return { op, modelName };
-}
-
-function getFindOneAndInfo(query: QueryExtras) {
-  const { op, model: { modelName } } = query;
-  const opts = query.getOptions();
-  return {
-    modelName,
-    isUpdate: (op === 'findOneAndUpdate'),
-    returnsNew: !!(
-      opts.new
-      || opts.returnOriginal === false
-      || opts.returnDocument === 'after'
-    ),
-  };
+  const { model: { modelName } } = query;
+  const { upsert = false } = query.getOptions();
+  const update = query.getUpdate();
+  const filter = query.getFilter();
+  return { modelName, upsert, update, filter };
 }
 
 const DOCS = { document: true, query: false } as const;
@@ -74,9 +66,7 @@ export default function bindPlugin(target: CacheEffectReceiver) {
     function preDocSave(this: DocumentWithId) {
       const { _id, modelName, isNew } = getDocumentInfo(this);
       if (!modelName) return; // embedded document creation, ignore
-      if (!isNew) {
-        effect({ op: 'remove', modelName, ids: [_id] });
-      }
+      if (!isNew) effect({ op: 'remove', modelName, ids: [_id] });
       effect({ op: 'insert', modelName, docs: [this.toObject()] });
     }
 
@@ -86,53 +76,20 @@ export default function bindPlugin(target: CacheEffectReceiver) {
     }
 
     async function preQueryUpdate(this: QueryExtras) {
-      const { op, modelName } = getQueryInfo(this);
-      const ids = await findIds(this, op === 'updateOne');
-      if (ids.length) {
-        effect({ op: 'remove', modelName, ids });
-        this.updatedIds = ids;
-      }
-    }
-
-    async function postQueryUpdate(
-      this: QueryExtras<UpdateWriteOpResult>,
-      res: UpdateWriteOpResult,
-    ) {
-      const { model, updatedIds: ids = [] } = this;
-      const { upsertedId } = res;
-      if (upsertedId) ids.push(upsertedId as Types.ObjectId);
-      if (ids && ids.length) {
-        const updated = await model.find({ _id: { $in: ids } }).lean();
-        effect({
-          op: 'insert',
-          modelName: model.modelName,
-          docs: updated as HasObjectId[],
-        });
+      const { modelName, update, filter, upsert } = getQueryInfo(this);
+      const docs = await findDocs(this, false);
+      applyUpdates(docs, { update, filter, upsert }); // TODO: handle upserted doc
+      if (docs.length) {
+        effect({ op: 'remove', modelName, ids: docs.map((doc) => doc._id) });
+        effect({ op: 'insert', modelName, docs });
       }
     }
 
     async function preQueryRemove(this: QueryExtras) {
-      const { op, modelName } = getQueryInfo(this);
-      const ids = await findIds(this, op === 'deleteOne');
-      if (ids.length) {
-        effect({ op: 'remove', modelName, ids });
-      }
-    }
-
-    async function postFindOneAnd(this: QueryExtras<HasObjectId | null>, doc: HasObjectId | null) {
-      if (!doc) return; // no match, do nothing
-      const { modelName, isUpdate, returnsNew } = getFindOneAndInfo(this);
-      // always effect remove event, for both remove and update queries
-      effect({ op: 'remove', modelName, ids: [doc._id] });
-      // send out insert event if we got an update
-      if (isUpdate) {
-        if (!returnsNew) {
-          const { model } = this;
-          doc = await model.findOne({ _id: doc._id }).lean();
-          if (!doc) return; // might just have gotten deleted, exit
-        }
-        if (doc instanceof Document) doc = doc.toObject();
-        effect({ op: 'insert', modelName, docs: [doc] });
+      const { modelName } = getQueryInfo(this);
+      const docs = await findDocs(this, true);
+      if (docs.length) {
+        effect({ op: 'remove', modelName, ids: docs.map((doc) => doc._id) });
       }
     }
 
@@ -148,10 +105,8 @@ export default function bindPlugin(target: CacheEffectReceiver) {
 
     schema.pre(['save', 'updateOne'], DOCS, preDocSave);
     schema.pre(['remove', 'deleteOne'], DOCS, preDocRemove);
-    schema.pre(['update', 'updateOne', 'updateMany'], QUERIES, preQueryUpdate);
-    schema.post(['update', 'updateOne', 'updateMany'], QUERIES, postQueryUpdate);
-    schema.pre(['remove', 'deleteOne', 'deleteMany'], QUERIES, preQueryRemove);
-    schema.post(['findOneAndUpdate', 'findOneAndRemove', 'findOneAndDelete'], postFindOneAnd);
+    schema.pre(['update', 'updateOne', 'updateMany', 'findOneAndUpdate'], QUERIES, preQueryUpdate);
+    schema.pre(['remove', 'deleteOne', 'deleteMany', 'findOneAndRemove', 'findOneAndDelete'], QUERIES, preQueryRemove);
     schema.pre('insertMany', preInsertMany);
   };
 }
