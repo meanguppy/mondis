@@ -10,24 +10,12 @@ type HelloDocument = {
   _id: Types.ObjectId;
   name: string;
   kind: string;
-  date: Date;
-  friend: WorldDocument;
-  items: Array<{ hello: string, world: string }>;
+  price: number;
 };
 const HelloSchema = new Schema<HelloDocument>({
   name: String,
   kind: String,
-  date: {
-    type: Date,
-    default: new Date(),
-  },
-  friend: {
-    type: Schema.Types.ObjectId,
-    ref: 'World',
-  },
-  items: [
-    { _id: false, hello: String, world: String },
-  ],
+  price: Number,
 });
 
 type WorldDocument = {
@@ -53,35 +41,41 @@ async function seed() {
     { name: 'three' },
     { name: 'four' },
   ]);
-  // TODO: need to solution for insertMany
-  await Promise.all(
-    [{ name: 'frank', kind: 'car' },
-      { name: 'henry', kind: 'truck' },
-      { name: 'oliver', kind: 'plane' },
-      { name: 'gary', kind: 'plane' },
-      { name: 'franklin', kind: 'truck' },
-      { name: 'john', kind: 'car' },
-    ].map((o) => Hello.create(o)),
-  );
+  await Hello.insertMany([
+    { name: 'frank', kind: 'car', price: 4500 },
+    { name: 'henry', kind: 'truck', price: 2000 },
+    { name: 'oliver', kind: 'plane', price: 88000 },
+    { name: 'gary', kind: 'plane', price: 321000 },
+    { name: 'franklin', kind: 'truck', price: 7200 },
+    { name: 'john', kind: 'car', price: 3900 },
+  ]);
 }
 
-const Thingy1 = mondis.CachedQuery<HelloDocument, [string]>({
+const VehicleByKind = mondis.CachedQuery<HelloDocument, [string]>({
   model: 'Hello',
   query: (kind) => ({ kind }),
-  populate: [{ path: 'friend' }],
 });
 
-const Thingy2 = mondis.CachedQuery<HelloDocument>({
+const CheapVehicles = mondis.CachedQuery<HelloDocument>({
   model: 'Hello',
-  query: { kind: 'car' },
+  query: {
+    price: { $lt: 6000 },
+  },
 });
 
 async function main() {
   await seed();
-  console.log(await Thingy1.exec(['car']));
-  await new Promise((res) => {
-    setTimeout(res, 1000);
+  console.log(
+    await CheapVehicles.exec(),
+    await VehicleByKind.exec(['car']),
+  );
+  await Hello.create({
+    name: 'rich',
+    kind: 'car',
+    price: 8000,
   });
 }
 
-main().then(() => process.exit(0));
+main().then(() => setTimeout(() => {
+  process.exit(0);
+}, 1000));

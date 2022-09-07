@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
 import crypto from 'crypto';
+import sift from 'sift';
 import type {
   QueryFilter,
   HasObjectId,
@@ -127,16 +128,17 @@ export function skipAndLimit<T>(array: T[], skip?: number, limit?: number) {
  * this would only be supported on static keys, read above!
  */
 export function classifyQueryKeys<T, P extends unknown[]>(
-  query: QueryFilter<T> | ((...params: P) => QueryFilter<T>),
+  input: QueryFilter<T> | ((...args: P) => QueryFilter<T>),
 ): QueryKeysClassification {
   let complexQuery = false;
-  if (query && typeof query === 'object') {
-    return { staticKeys: query, dynamicKeys: [], complexQuery };
+  if (input && typeof input === 'object') {
+    return { matcher: sift(input), dynamicKeys: [], complexQuery };
   }
+  if (!input || typeof input !== 'function') throw Error('Bad query configuration');
 
   // map params to objects, used to compare by reference without risk of ambiguous comparison
-  const params = Array(query.length).fill(null).map(() => ({})) as P;
-  query = query(...params);
+  const params = Array(input.length).fill(null).map(() => ({})) as P;
+  const query = (input as (...args: P) => QueryFilter<T>)(...params);
 
   // recursively search query object for parameters (empty objects)
   const dynamicKeys: string[] = [];
@@ -159,7 +161,7 @@ export function classifyQueryKeys<T, P extends unknown[]>(
     }
   });
 
-  return { staticKeys, dynamicKeys, complexQuery };
+  return { matcher: sift(staticKeys), dynamicKeys, complexQuery };
 }
 
 export function jsonHash(input: unknown) {

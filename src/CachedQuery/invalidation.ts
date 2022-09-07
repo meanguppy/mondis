@@ -19,11 +19,6 @@ function union<T>(...targets: (T[] | Set<T>)[]) {
   return Array.from(result);
 }
 
-function okForComparison(val: unknown) {
-  const t = (typeof val);
-  return (val === null || t !== 'object') && t !== 'function';
-}
-
 type RedisMultiResult = Awaited<ReturnType<RedisCommander['exec']>>;
 function flattenRedisMulti(input: RedisMultiResult) {
   if (!input) return [];
@@ -48,21 +43,14 @@ function getInsertInvalidation(
   // then a new document will have no effect on cached queries.
   if (unique || !invalidateOnInsert || model !== modelName) return null;
 
-  const { staticKeys, dynamicKeys, complexQuery } = cq.classification;
-  // Currently only supports simple equality checks (TODO: expand supported operations?)
-  // If the key doesn't match the query, no need to invalidate
-  const someMismatchExists = Object.entries(staticKeys).some(([key, val]) => (
-    okForComparison(val)
-    && okForComparison(doc[key])
-    && val !== doc[key]
-  ));
+  const { matcher, dynamicKeys, complexQuery } = cq.classification;
+
+  const docCouldMatchQuery = matcher(doc);
   // If any field in the document contradicts the query, no need to invalidate
-  if (someMismatchExists) return null;
-  if (complexQuery) {
-    // If any configurable part of the query is not just an equality check,
-    // we have to invalidate all queries, because we don't know if it has changed.
-    return { set: cq.getCacheKeyForAll() };
-  }
+  if (!docCouldMatchQuery) return null;
+  // If any configurable part of the query is not just an equality check,
+  // we have to invalidate all queries, because we don't know if it has changed.
+  if (complexQuery) return { set: cq.getCacheKeyForAll() };
   // Otherwise, just reconstruct the cache key to only invalidate queries with matching params
   const params = dynamicKeys.map((key) => doc[key]);
   return { key: cq.getCacheKey(params) };

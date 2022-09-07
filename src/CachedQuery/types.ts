@@ -1,12 +1,8 @@
-import type {
-  QueryOptions,
-  SortOrder,
-  Types,
-} from 'mongoose';
+import type { QueryOptions, SortOrder, Types } from 'mongoose';
+import type { Query as SiftFilter } from 'sift';
+import type sift from 'sift';
 
-export type QueryFilter<T = unknown> = {
-  [P in keyof T]?: unknown;
-};
+export type QueryFilter<T = unknown> = Exclude<SiftFilter<T>, RegExp>;
 
 export type QueryProjection = Record<string, unknown>;
 
@@ -27,7 +23,7 @@ export type QueryPopulation = {
 export type QuerySortOrder = string | { [key: string]: SortOrder };
 
 export type QueryKeysClassification = {
-  staticKeys: Record<string, unknown>;
+  matcher: ReturnType<typeof sift>;
   dynamicKeys: string[];
   complexQuery: boolean;
 };
