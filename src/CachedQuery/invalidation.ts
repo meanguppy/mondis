@@ -68,14 +68,12 @@ function parseParamsFromQueryKey(key: string) {
 }
 
 export default class InvalidationHandler {
-  context: Mondis;
+  constructor(
+    readonly context: Mondis,
+  ) { }
 
-  constructor(context: Mondis) {
-    this.context = context;
-  }
-
-  // TODO: add queueing mechanism for optimized invalidation batching:
-  // remove duplicate keys, set invalidations trump keys
+  // TODO: add queueing mechanism for optimized invalidation batching?
+  // TODO: implement 'blocking' hash key to prevent edge-case race conditions.
   onCacheEffect(effect: CacheEffect) {
     if (effect.op === 'insert') this.doInsertInvalidation(effect);
     if (effect.op === 'remove') this.doRemoveInvalidation(effect);
@@ -86,7 +84,9 @@ export default class InvalidationHandler {
     const { modelName, docs } = effect;
 
     const { keys, sets } = this.collectInsertInvalidations(modelName, docs);
-    const expandedSets = sets.size ? await redis.sunion(...sets) : [];
+    const expandedSets = (sets.size) ? await redis.sunion(...sets) : [];
+    if (!keys.size && !expandedSets.length) return; // nothing to do
+
     await this.invalidate(union(keys, expandedSets));
   }
 
@@ -97,8 +97,9 @@ export default class InvalidationHandler {
     ids.forEach((id) => multi.smembers(`obj:${String(id)}`));
     const result = flattenRedisMulti(await multi.exec()) as string[][];
     if (!result) return;
-
     const dependentKeys = union(...result);
+    if (!dependentKeys.length) return; // nothing to do
+
     await this.invalidate(dependentKeys);
   }
 
