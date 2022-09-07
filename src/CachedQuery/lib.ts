@@ -1,5 +1,4 @@
 import { Types } from 'mongoose';
-import { get } from 'lodash';
 import crypto from 'crypto';
 import type {
   QueryFilter,
@@ -7,6 +6,48 @@ import type {
   QueryPopulation,
   QueryKeysClassification,
 } from './types';
+
+type AnyObject = { [key: string]: unknown };
+
+function walk(
+  target: unknown,
+  path: string,
+  buildPath: boolean,
+  cb: (found: AnyObject, key: string) => void,
+) {
+  if (target == null) return;
+  const split = path.split('.');
+  const key = split[0] || '';
+
+  if (split.length === 1) {
+    cb(target as AnyObject, key);
+  } else {
+    const nextTarget = (target as AnyObject)[key];
+    if (buildPath && nextTarget == null) {
+      (target as AnyObject)[key] = {};
+    }
+    const remainder = split.slice(1).join('.');
+    walk(nextTarget, remainder, buildPath, cb);
+  }
+}
+
+export function updateValue(target: unknown, path: string, cb: (value: unknown) => unknown) {
+  walk(target, path, true, (found, key) => { found[key] = cb(found[key]); });
+}
+
+export function setValue(target: unknown, path: string, value: unknown) {
+  walk(target, path, true, (found, key) => { found[key] = value; });
+}
+
+export function unsetValue(target: unknown, path: string) {
+  walk(target, path, false, (found, key) => { delete found[key]; });
+}
+
+export function getValue(target: unknown, path: string) {
+  let result: unknown;
+  walk(target, path, false, (found, key) => { result = found[key]; });
+  return result;
+}
 
 export function hasObjectId(target: unknown): target is HasObjectId {
   return (
@@ -30,7 +71,7 @@ export function collectPopulatedIds(
 
   docs.forEach((doc) => {
     populations.forEach(({ path, populate: innerPopulate }) => {
-      const inner: unknown = get(doc, path);
+      const inner = getValue(doc, path);
       if (!inner || typeof inner !== 'object') return;
 
       const items: unknown[] = Array.isArray(inner) ? inner : [inner];
