@@ -44,17 +44,11 @@ export type CachedQueryConfig<T, P extends unknown[]> = {
 };
 
 class ParsedOptions<T> {
-  query: QueryFilter<T>;
-
-  key: string;
-
-  exec: QueryExecOpts<T>;
-
-  constructor(query: QueryFilter<T>, key: string, exec: QueryExecOpts<T>) {
-    this.query = query;
-    this.key = key;
-    this.exec = exec;
-  }
+  constructor(
+    readonly query: QueryFilter<T>,
+    readonly key: string,
+    readonly exec: QueryExecOpts<T>,
+  ) { }
 
   fresh(exec: QueryExecOpts<T>) {
     return new ParsedOptions(this.query, this.key, exec);
