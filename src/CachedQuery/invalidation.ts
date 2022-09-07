@@ -7,8 +7,8 @@ import type {
 } from './types';
 
 type InsertInvalidation =
-  | { key: string }
-  | { set: string }
+  | { hash: string, all: true }
+  | { hash: string, key: string }
   | null;
 
 function union<T>(...targets: (T[] | Set<T>)[]) {
@@ -44,20 +44,19 @@ function getInsertInvalidation(
   if (unique || !invalidateOnInsert || model !== modelName) return null;
 
   const { matcher, dynamicKeys, complexQuery } = cq.classification;
-
-  const docCouldMatchQuery = matcher(doc);
   // If any field in the document contradicts the query, no need to invalidate
+  const docCouldMatchQuery = matcher(doc);
   if (!docCouldMatchQuery) return null;
   // If any configurable part of the query is not just an equality check,
   // we have to invalidate all queries, because we don't know if it has changed.
-  if (complexQuery) return { set: cq.getCacheKeyForAll() };
+  if (complexQuery) return { hash: cq.hash, all: true };
   // Otherwise, just reconstruct the cache key to only invalidate queries with matching params
   const params = dynamicKeys.map((key) => doc[key]);
-  return { key: cq.getCacheKey(params) };
+  return { hash: cq.hash, key: cq.getCacheKey(params) };
 }
 
 function parseParamsFromQueryKey(key: string) {
-  const result = key.match(/^q:[^[]+(.+?)$/);
+  const result = key.match(/^Q:[^[]+(.+?)$/);
   try {
     const match = result && result[1];
     if (match) return JSON.parse(match) as unknown[];
@@ -84,6 +83,8 @@ export default class InvalidationHandler {
     const { modelName, docs } = effect;
 
     const { keys, sets } = this.collectInsertInvalidations(modelName, docs);
+    // this.temporarilyBlockHashes(hashes);
+
     const expandedSets = (sets.size) ? await redis.sunion(...sets) : [];
     if (!keys.size && !expandedSets.length) return; // nothing to do
 
@@ -94,7 +95,7 @@ export default class InvalidationHandler {
     const { redis } = this.context;
     const { ids } = effect;
     const multi = redis.multi();
-    ids.forEach((id) => multi.smembers(`obj:${String(id)}`));
+    ids.forEach((id) => multi.smembers(`O:${String(id)}`));
     const result = flattenRedisMulti(await multi.exec()) as string[][];
     if (!result) return;
     const dependentKeys = union(...result);
@@ -136,24 +137,35 @@ export default class InvalidationHandler {
     await Promise.all(promises);
   }
 
+  async temporarilyBlockHashes(hashes: Set<string>) {
+    if (!hashes.size) return;
+
+    const { redis } = this.context;
+    const multi = redis.multi();
+    hashes.forEach((hash) => multi.setex(`X:${hash}`, 1, 1));
+    await multi.exec();
+  }
+
   collectInsertInvalidations(model: string, docs: HasObjectId[]) {
     const keys = new Set<string>();
     const sets = new Set<string>();
+    const hashes = new Set<string>();
     const { allCachedQueries } = this.context;
     allCachedQueries.forEach((query) => {
       docs.forEach((doc) => {
         const info = getInsertInvalidation(query, model, doc);
         if (!info) return;
+        hashes.add(info.hash);
+        if ('all' in info) sets.add(`A:${info.hash}`);
         if ('key' in info) keys.add(info.key);
-        if ('set' in info) sets.add(info.set);
       });
     });
-    return { keys, sets };
+    return { keys, sets, hashes };
   }
 
   findCachedQueryByKey(key: string) {
     const { allCachedQueries } = this.context;
-    const match = key.match(/^q:(.*?)\[/);
+    const match = key.match(/^Q:(.*?)\[/);
     if (match && match[1]) {
       const found = allCachedQueries.find((cq) => cq.hash === match[1]);
       if (found) return found;

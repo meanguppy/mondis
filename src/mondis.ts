@@ -46,11 +46,11 @@ const commands = {
       local depends = redis.call("HGET", qkey, "depends")
       if depends == false then
         return 0 end
-      local allKey = "all:"..string.sub(qkey, 3, 18)
+      local allKey = "A:"..string.sub(qkey, 3, 18)
       redis.call("SREM", allKey, qkey)
       redis.call("DEL", qkey)
       for key in string.gmatch(depends, "%S+") do
-        redis.call("SREM", "obj:"..key, qkey)
+        redis.call("SREM", "O:"..key, qkey)
       end
       return 1
     `,

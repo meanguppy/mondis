@@ -107,11 +107,7 @@ class CachedQuery<
     }
     // TODO: consider replacing JSON with something else, some types cannot be represented.
     const paramsStr = JSON.stringify(params);
-    return `q:${hash}${paramsStr}`;
-  }
-
-  getCacheKeyForAll() {
-    return `all:${this.hash}`;
+    return `Q:${hash}${paramsStr}`;
   }
 
   private buildQuery(input: InputExecOpts<T, P>) {
@@ -145,11 +141,13 @@ class CachedQuery<
    */
   private async serializeAndCache(result: T[], cacheKey: string) {
     const { redis } = this.context;
-    const { populate, expiry } = this.config;
+    const { hash, config: { populate, expiry } } = this;
     try {
       const bson = serialize(result);
       const depends = collectPopulatedIds(result, populate);
-      const allKey = this.getCacheKeyForAll();
+      // const isBlocked = await redis.exists(`X:${hash}`);
+      // if (isBlocked) return; // do not cache this result
+      const allKey = `A:${hash}`;
       // Cache result, and create keys used for tracking invalidations
       const multi = redis.multi();
       multi.del(cacheKey);
@@ -159,8 +157,8 @@ class CachedQuery<
       multi.expiregt(cacheKey, expiry);
       multi.expiregt(allKey, expiry);
       depends.forEach((id) => {
-        multi.sadd(`obj:${id}`, cacheKey);
-        multi.expiregt(`obj:${id}`, expiry);
+        multi.sadd(`O:${id}`, cacheKey);
+        multi.expiregt(`O:${id}`, expiry);
       });
       await multi.exec();
     } catch (err) {
