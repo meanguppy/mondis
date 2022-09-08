@@ -130,9 +130,8 @@ export function skipAndLimit<T>(array: T[], skip?: number, limit?: number) {
 export function classifyQueryKeys<T, P extends unknown[]>(
   input: QueryFilter<T> | ((...args: P) => QueryFilter<T>),
 ): QueryKeysClassification {
-  let complexQuery = false;
   if (input && typeof input === 'object') {
-    return { matcher: sift(input), dynamicKeys: [], complexQuery };
+    return { matcher: sift<unknown>(input), dynamicKeys: [], complexQuery: false };
   }
   if (!input || typeof input !== 'function') throw Error('Bad query configuration');
 
@@ -141,6 +140,7 @@ export function classifyQueryKeys<T, P extends unknown[]>(
   const query = (input as (...args: P) => QueryFilter<T>)(...params);
 
   // recursively search query object for parameters (empty objects)
+  let complexQuery = false;
   const dynamicKeys: string[] = [];
   function findParam(key: string, target: unknown, inside = false) {
     if (!target || typeof target !== 'object') return;

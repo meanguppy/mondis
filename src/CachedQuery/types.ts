@@ -1,8 +1,10 @@
 import type { QueryOptions, SortOrder, Types } from 'mongoose';
-import type { Query as SiftFilter } from 'sift';
 import type sift from 'sift';
 
-export type QueryFilter<T = unknown> = Exclude<SiftFilter<T>, RegExp>;
+export type QueryFilter<T = unknown> =
+  T extends Record<string, unknown>
+    ? { [P in keyof T]?: unknown }
+    : {};
 
 export type QueryProjection = Record<string, unknown>;
 
