@@ -174,6 +174,10 @@ When deciding on a `cacheCount` to use, consider the following:
 
 Queries that change based on _when_ they are called should never be cached!
 
-## Implementation details
+## TODO
 
-TODO
+* Handle invalidation for upserted documents
+* Handle query rehydration after invalidation
+* Support the remaining update operators
+* Expand testing suite
+* Write documentation on implementation details
