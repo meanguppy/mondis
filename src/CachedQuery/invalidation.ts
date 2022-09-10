@@ -2,8 +2,8 @@ import type { RedisCommander } from 'ioredis';
 import type Mondis from '../mondis';
 import type CachedQuery from './index';
 import type {
+  AnyObject,
   CacheEffect,
-  HasObjectId,
 } from './types';
 
 type InsertInvalidation =
@@ -36,7 +36,7 @@ function flattenRedisMulti(input: RedisMultiResult) {
 function getInsertInvalidation(
   cq: CachedQuery,
   modelName: string,
-  doc: HasObjectId,
+  doc: AnyObject,
 ): InsertInvalidation {
   const { unique, invalidateOnInsert, model } = cq.config;
   // If this query uniquely identifies a single document,
@@ -146,7 +146,7 @@ export default class InvalidationHandler {
     await multi.exec();
   }
 
-  collectInsertInvalidations(model: string, docs: HasObjectId[]) {
+  collectInsertInvalidations(model: string, docs: AnyObject[]) {
     const keys = new Set<string>();
     const sets = new Set<string>();
     const hashes = new Set<string>();
