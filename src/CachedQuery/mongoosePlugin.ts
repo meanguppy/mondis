@@ -18,24 +18,15 @@ type QueryExtras<ResType = unknown> =
   & { op: string }
   & { updatedIds?: Types.ObjectId[] };
 
-// BIG TODO: setting `op` on query resets filter! BAD
-async function findDocs(query: QueryExtras, idOnly = false) {
-  const actualOp = query.op;
-  const firstOnly = actualOp.includes('One');
-  query.op = 'find'; // ensure cursor creation does not fail with op
-  const cursor = query.cursor({
-    lean: true,
-    ...(firstOnly && { limit: 1 }),
-    ...(idOnly && { projection: '_id' }),
-  });
-  query.op = actualOp; // restore actual op
-  const result = [];
-  // eslint-disable-next-line no-restricted-syntax
-  for await (const doc of cursor) {
-    result.push(doc);
-  }
-  cursor.close();
-  return result;
+async function findDocs(updateQuery: QueryExtras, idOnly = false) {
+  const firstOnly = updateQuery.op.includes('One');
+  const { strict, strictQuery } = updateQuery.getOptions();
+  const query = updateQuery.model.find(updateQuery.getFilter()).lean();
+  if (idOnly) query.select('_id');
+  if (firstOnly) query.limit(1);
+  if (strict !== undefined) query.setOptions({ strict });
+  if (strictQuery !== undefined) query.setOptions({ strictQuery });
+  return query.exec() as Promise<HasObjectId[]>;
 }
 
 function getDocumentInfo(doc: DocumentWithId) {
