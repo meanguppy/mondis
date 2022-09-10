@@ -5,7 +5,7 @@ import type {
   Schema,
   Types,
 } from 'mongoose';
-import { applyUpdates } from './mongoOperators';
+import { applyUpdateQuery, buildUpsertedDocument } from './mongoOperators';
 import type {
   CacheEffect,
   HasObjectId,
@@ -18,6 +18,7 @@ type QueryExtras<ResType = unknown> =
   & { op: string }
   & { updatedIds?: Types.ObjectId[] };
 
+// BIG TODO: setting `op` on query resets filter! BAD
 async function findDocs(query: QueryExtras, idOnly = false) {
   const actualOp = query.op;
   const firstOnly = actualOp.includes('One');
@@ -77,17 +78,20 @@ export default function bindPlugin(target: CacheEffectReceiver) {
 
     async function preQueryUpdate(this: QueryExtras) {
       const { modelName, update, filter, upsert } = getQueryInfo(this);
-      const docs = await findDocs(this, false);
-      applyUpdates(docs, { update, filter, upsert }); // TODO: handle upserted doc
+      const docs = await findDocs(this.clone(), false);
       if (docs.length) {
+        applyUpdateQuery(docs, update);
         effect({ op: 'remove', modelName, ids: docs.map((doc) => doc._id) });
         effect({ op: 'insert', modelName, docs });
+      } else if (upsert) {
+        const upserted = buildUpsertedDocument(filter, update);
+        effect({ op: 'insert', modelName, docs: [upserted] });
       }
     }
 
     async function preQueryRemove(this: QueryExtras) {
       const { modelName } = getQueryInfo(this);
-      const docs = await findDocs(this, true);
+      const docs = await findDocs(this.clone(), true);
       if (docs.length) {
         effect({ op: 'remove', modelName, ids: docs.map((doc) => doc._id) });
       }
@@ -98,7 +102,7 @@ export default function bindPlugin(target: CacheEffectReceiver) {
       // meaning default value are missing. Create document only to pass to invalidation
       const { modelName } = this;
       const docs = (Array.isArray(input) ? input : [input])
-        .map((item: unknown) => new this(item).toObject() as HasObjectId);
+        .map((item: unknown) => new this(item).toObject());
       effect({ op: 'insert', modelName, docs });
       next();
     }

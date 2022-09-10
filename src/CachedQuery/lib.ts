@@ -2,13 +2,12 @@ import { Types } from 'mongoose';
 import crypto from 'crypto';
 import sift from 'sift';
 import type {
+  AnyObject,
   QueryFilter,
   HasObjectId,
   QueryPopulation,
   QueryKeysClassification,
 } from './types';
-
-type AnyObject = { [key: string]: unknown };
 
 function walk(
   target: unknown,
@@ -141,7 +140,7 @@ export function classifyQueryKeys<T, P extends unknown[]>(
   }
   Object.entries(query).forEach(([k, v]) => findParam(k, v));
 
-  const staticKeys: Record<string, unknown> = {};
+  const staticKeys: AnyObject = {};
   Object.entries(query).forEach(([k, v]) => {
     if (!dynamicKeys.includes(k)) {
       staticKeys[k] = v;

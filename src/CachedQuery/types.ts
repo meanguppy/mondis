@@ -1,14 +1,15 @@
 import type { QueryOptions, SortOrder, Types } from 'mongoose';
 import type sift from 'sift';
 
+export type AnyObject = Record<string, unknown>;
+
 export type QueryFilter<T = unknown> =
-  T extends Record<string, unknown>
+  T extends AnyObject
     ? { [P in keyof T]?: unknown }
     : {};
 
-export type QueryProjection = Record<string, unknown>;
+export type QueryProjection = AnyObject;
 
-// stricter version of mongoose.PopulateOptions
 export type QueryPopulation = {
   path: string;
   select?: QueryProjection;
@@ -30,7 +31,6 @@ export type QueryKeysClassification = {
   complexQuery: boolean;
 };
 
-// TODO: decide whether enforcing ObjectId type is necessary.
 export type HasObjectId = {
   _id: Types.ObjectId;
   [key: string]: unknown;
@@ -43,5 +43,5 @@ export type HasObjectId = {
  * Note: database updates are handled as if they were removed and then re-inserted!
  */
 export type CacheEffect =
-  | { op: 'insert', modelName: string, docs: HasObjectId[] }
+  | { op: 'insert', modelName: string, docs: AnyObject[] }
   | { op: 'remove', modelName: string, ids: Types.ObjectId[] };

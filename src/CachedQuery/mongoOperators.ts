@@ -1,7 +1,10 @@
 import type { Query } from 'mongoose';
+import type { AnyObject } from './types';
 import { getValue, setValue, unsetValue, updateValue } from './lib';
 
-type MongoOperators = Record<(typeof operators)[number], Record<string, unknown>>;
+type MongoOperators = Record<(typeof operators)[number], AnyObject>;
+
+type MongooseQueryUpdate = ReturnType<Query<unknown, unknown>['getUpdate']>;
 
 /**
  * Unsupported operators:
@@ -113,7 +116,7 @@ function isSupportedOperator(name: string): name is typeof operators[number] {
   return operators.includes(name as never);
 }
 
-function assertOperatorIsValid(key: string, val: unknown): asserts val is Record<string, unknown> {
+function assertOperatorIsValid(key: string, val: unknown): asserts val is AnyObject {
   if (!val || typeof val !== 'object') throw Error(`Invalid operator value for ${key}`);
 }
 
@@ -145,26 +148,17 @@ function parseUpdateQuery(input: MongooseQueryUpdate) {
   return result;
 }
 
-function buildUpsertedDocument(filter: Record<string, unknown>, update: Partial<MongoOperators>) {
-  // TODO: implement
-  return {};
+function getFilterValue(value: unknown): { add: boolean, value?: unknown } {
+  if (value && typeof value === 'object') {
+    const hasEqOp = '$eq' in value;
+    if (hasEqOp) return { add: true, value: (value as AnyObject)['$eq'] };
+    const someMongoOp = Object.keys(value).some((key) => key.startsWith('$'));
+    if (someMongoOp) return { add: false };
+  }
+  return { add: true, value };
 }
 
-type MongooseQueryUpdate = ReturnType<Query<unknown, unknown>['getUpdate']>;
-
-type ApplyUpdatesOptions = {
-  update: MongooseQueryUpdate,
-  filter?: Record<string, unknown>;
-  upsert?: boolean;
-};
-
-export function applyUpdates(targets: Array<{}>, options: ApplyUpdatesOptions) {
-  const { update: rawUpdate, filter = {}, upsert = false } = options;
-  const update = parseUpdateQuery(rawUpdate);
-  if (targets.length === 0) {
-    if (!upsert) return null;
-    return buildUpsertedDocument(filter, update);
-  }
+function applyUpdates(targets: Array<{}>, update: Partial<MongoOperators>) {
   Object.entries(update).forEach(([op, paths]) => {
     if (!isSupportedOperator(op)) throw Error(`Unsupported update operator ${op}`);
     const handler = handlers[op];
@@ -176,5 +170,22 @@ export function applyUpdates(targets: Array<{}>, options: ApplyUpdatesOptions) {
       });
     });
   });
-  return null; // no upserted document
+}
+
+export function buildUpsertedDocument(filter: AnyObject, rawUpdate: MongooseQueryUpdate) {
+  const update = parseUpdateQuery(rawUpdate);
+  const doc: AnyObject = {};
+  // Find keys from `filter` that should be `$set` in the upserted doc
+  Object.entries(filter).forEach(([field, rawValue]) => {
+    const { add, value } = getFilterValue(rawValue);
+    if (add) doc[field] = value;
+  });
+  // Merge $setOnInsert into $set, since they are the same during upsert
+  const { $set, $setOnInsert } = update;
+  applyUpdates([doc], { ...update, $set: { ...$set, ...$setOnInsert } });
+  return doc;
+}
+
+export function applyUpdateQuery(targets: Array<{}>, rawUpdate: MongooseQueryUpdate) {
+  applyUpdates(targets, parseUpdateQuery(rawUpdate));
 }
