@@ -35,7 +35,6 @@ describe('CachedQuery tests', () => {
   afterEach(() => {
     mongoose.disconnect();
     redis.disconnect();
-    jest.resetModules();
   });
 
   // async function expectRedisSnapshot() {

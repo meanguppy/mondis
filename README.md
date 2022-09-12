@@ -176,8 +176,8 @@ Queries that change based on _when_ they are called should never be cached!
 
 ## TODO
 
-* Handle invalidation for upserted documents
-* Handle query rehydration after invalidation
+* ~~Handle invalidation for upserted documents~~
+* ~~Handle query rehydration after invalidation~~
 * Support the remaining update operators
 * Expand testing suite
 * Write documentation on implementation details

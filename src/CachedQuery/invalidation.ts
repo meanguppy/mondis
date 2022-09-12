@@ -1,10 +1,8 @@
 import type { RedisCommander } from 'ioredis';
 import type Mondis from '../mondis';
 import type CachedQuery from './index';
-import type {
-  AnyObject,
-  CacheEffect,
-} from './types';
+import type { AnyObject, CacheEffect } from './types';
+import { PromiseQueue } from './lib';
 
 type InsertInvalidation =
   | { hash: string, all: true }
@@ -55,7 +53,7 @@ function getInsertInvalidation(
   return { hash: cq.hash, key: cq.getCacheKey(params) };
 }
 
-const MATCH_CACHE_KEY = /^Q:(.+?)(\[.+\])$/;
+const MATCH_CACHE_KEY = /^Q:(.+?)(\[.*\])$/;
 function parseCacheKey(key: string) {
   const [, hash, params] = key.match(MATCH_CACHE_KEY) || [];
   if (!hash || !params) throw Error('Failed to parse cache key');
@@ -66,7 +64,7 @@ function parseCacheKey(key: string) {
 }
 
 export default class InvalidationHandler {
-  keysInvalidated = new Set<string>();
+  private promises = new PromiseQueue();
 
   constructor(
     readonly context: Mondis,
@@ -75,11 +73,16 @@ export default class InvalidationHandler {
   // TODO: add queueing mechanism for optimized invalidation batching?
   // TODO: implement 'blocking' hash key to prevent edge-case race conditions.
   onCacheEffect(effect: CacheEffect) {
-    if (effect.op === 'insert') this.doInsertInvalidation(effect);
-    if (effect.op === 'remove') this.doRemoveInvalidation(effect);
+    const { promises } = this;
+    if (effect.op === 'insert') {
+      promises.add(this.doInsertInvalidation(effect));
+    }
+    if (effect.op === 'remove') {
+      promises.add(this.doRemoveInvalidation(effect));
+    }
   }
 
-  async doInsertInvalidation(effect: CacheEffect & { op: 'insert' }) {
+  private async doInsertInvalidation(effect: CacheEffect & { op: 'insert' }) {
     const { redis } = this.context;
     const { modelName, docs } = effect;
 
@@ -90,7 +93,7 @@ export default class InvalidationHandler {
     await this.invalidate(union(keys, expandedSets));
   }
 
-  async doRemoveInvalidation(effect: CacheEffect & { op: 'remove' }) {
+  private async doRemoveInvalidation(effect: CacheEffect & { op: 'remove' }) {
     const { redis } = this.context;
     const { ids } = effect;
     const multi = redis.multi();
@@ -103,7 +106,7 @@ export default class InvalidationHandler {
     await this.invalidate(dependentKeys);
   }
 
-  async invalidate(keys: string[]) {
+  private async invalidate(keys: string[]) {
     if (!keys.length) return;
 
     const { redis } = this.context;
@@ -112,24 +115,24 @@ export default class InvalidationHandler {
     const results = await multi.exec();
     if (!results || !results.length) return;
 
+    const keysInvalidated: string[] = [];
     results.forEach(([err, didExist], index) => {
       if (err !== null) return;
       const key = keys[index];
-      if (key && didExist) {
-        this.keysInvalidated.add(key);
-      }
+      if (key && didExist) keysInvalidated.push(key);
     });
+
+    if (!keysInvalidated.length) return;
+    await this.rehydrate(keysInvalidated);
   }
 
-  async rehydrate() {
-    const { keysInvalidated } = this;
-    if (!keysInvalidated.size) return;
-    const keys = Array.from(keysInvalidated);
-    keysInvalidated.clear();
+  private async rehydrate(keys: string[]) {
+    if (!keys.length) return;
 
+    const { lookupCachedQuery } = this.context;
     const promises = keys.map(async (key) => {
       const { hash, params } = parseCacheKey(key);
-      const query = this.findCachedQueryByHash(hash);
+      const query = lookupCachedQuery.get(hash);
       if (!query || !query.config.rehydrate) return;
       await query.exec({ params, limit: query.config.cacheCount, skipCache: true });
     });
@@ -137,12 +140,13 @@ export default class InvalidationHandler {
     await Promise.all(promises);
   }
 
-  collectInsertInvalidations(model: string, docs: AnyObject[]) {
+  private collectInsertInvalidations(model: string, docs: AnyObject[]) {
     const keys = new Set<string>();
     const sets = new Set<string>();
     const hashes = new Set<string>();
-    const { allCachedQueries } = this.context;
-    allCachedQueries.forEach((query) => {
+    const { lookupCachedQuery } = this.context;
+    // eslint-disable-next-line no-restricted-syntax
+    for (const query of lookupCachedQuery.values()) {
       docs.forEach((doc) => {
         const info = getInsertInvalidation(query, model, doc);
         if (!info) return;
@@ -150,12 +154,11 @@ export default class InvalidationHandler {
         if ('all' in info) sets.add(`A:${info.hash}`);
         if ('key' in info) keys.add(info.key);
       });
-    });
+    }
     return { keys, sets, hashes };
   }
 
-  findCachedQueryByHash(hash: string) {
-    const { allCachedQueries } = this.context;
-    return allCachedQueries.find((cq) => cq.hash === hash);
+  finish() {
+    return this.promises.flush();
   }
 }

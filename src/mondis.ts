@@ -1,10 +1,10 @@
 import type Redis from 'ioredis';
 import type { Result, Callback } from 'ioredis';
 import type { Mongoose } from 'mongoose';
+import type { HasObjectId } from './CachedQuery/types';
 import CachedQuery, { CachedQueryConfig } from './CachedQuery';
 import InvalidationHandler from './CachedQuery/invalidation';
 import bindPlugin from './CachedQuery/mongoosePlugin';
-import type { HasObjectId } from './CachedQuery/types';
 
 declare module 'ioredis' {
   interface RedisCommander<Context> {
@@ -69,11 +69,11 @@ class Mondis {
 
   private _invalidator: InvalidationHandler;
 
-  allCachedQueries: CachedQuery[];
+  lookupCachedQuery: Map<string, CachedQuery>;
 
   constructor(config?: MondisConfiguration) {
     this._invalidator = new InvalidationHandler(this);
-    this.allCachedQueries = [];
+    this.lookupCachedQuery = new Map<string, CachedQuery>();
     this.init(config ?? {});
   }
 
@@ -92,13 +92,9 @@ class Mondis {
     return bindPlugin(this._invalidator);
   }
 
-  rehydrate() {
-    return this._invalidator.rehydrate();
-  }
-
   CachedQuery<T extends HasObjectId, P extends unknown[] = never>(config: CachedQueryConfig<T, P>) {
     const cachedQuery = new CachedQuery<T, P>(this, config);
-    this.allCachedQueries.push(cachedQuery as unknown as CachedQuery);
+    this.lookupCachedQuery.set(cachedQuery.hash, cachedQuery as unknown as CachedQuery);
     return cachedQuery;
   }
 
