@@ -2,9 +2,9 @@ import type { Query } from 'mongoose';
 import type { AnyObject } from './types';
 import { getValue, setValue, unsetValue, updateValue } from './lib';
 
-type MongoOperators = Record<(typeof operators)[number], AnyObject>;
+export type MongoOperators = Record<(typeof operators)[number], AnyObject>;
 
-type MongooseQueryUpdate = ReturnType<Query<unknown, unknown>['getUpdate']>;
+export type MongooseQueryUpdate = ReturnType<Query<unknown, unknown>['getUpdate']>;
 
 /**
  * Unsupported operators:
