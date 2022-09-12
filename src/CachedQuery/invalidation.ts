@@ -1,10 +1,8 @@
 import type { RedisCommander } from 'ioredis';
 import type Mondis from '../mondis';
 import type CachedQuery from './index';
-import type {
-  AnyObject,
-  CacheEffect,
-} from './types';
+import type { AnyObject, CacheEffect } from './types';
+import { PromiseQueue } from './lib';
 
 type InsertInvalidation =
   | { hash: string, all: true }
@@ -55,18 +53,19 @@ function getInsertInvalidation(
   return { hash: cq.hash, key: cq.getCacheKey(params) };
 }
 
-function parseParamsFromQueryKey(key: string) {
-  const result = key.match(/^Q:[^[]+(.+?)$/);
-  try {
-    const match = result && result[1];
-    if (match) return JSON.parse(match) as unknown[];
-  } catch (err) {
-    // logger.warn({ err, tag: 'CACHE_INVALIDATION_ERROR' }, 'Failed to parse JSON');
-  }
-  return [];
+const MATCH_CACHE_KEY = /^Q:(.+?)(\[.*\])$/;
+function parseCacheKey(key: string) {
+  const [, hash, params] = key.match(MATCH_CACHE_KEY) || [];
+  if (!hash || !params) throw Error('Failed to parse cache key');
+  return {
+    hash,
+    params: JSON.parse(params) as unknown[],
+  };
 }
 
 export default class InvalidationHandler {
+  private promises = new PromiseQueue();
+
   constructor(
     readonly context: Mondis,
   ) { }
@@ -74,24 +73,27 @@ export default class InvalidationHandler {
   // TODO: add queueing mechanism for optimized invalidation batching?
   // TODO: implement 'blocking' hash key to prevent edge-case race conditions.
   onCacheEffect(effect: CacheEffect) {
-    if (effect.op === 'insert') this.doInsertInvalidation(effect);
-    if (effect.op === 'remove') this.doRemoveInvalidation(effect);
+    const { promises } = this;
+    if (effect.op === 'insert') {
+      promises.add(this.doInsertInvalidation(effect));
+    }
+    if (effect.op === 'remove') {
+      promises.add(this.doRemoveInvalidation(effect));
+    }
   }
 
-  async doInsertInvalidation(effect: CacheEffect & { op: 'insert' }) {
+  private async doInsertInvalidation(effect: CacheEffect & { op: 'insert' }) {
     const { redis } = this.context;
     const { modelName, docs } = effect;
 
     const { keys, sets } = this.collectInsertInvalidations(modelName, docs);
-    // this.temporarilyBlockHashes(hashes);
-
     const expandedSets = (sets.size) ? await redis.sunion(...sets) : [];
     if (!keys.size && !expandedSets.length) return; // nothing to do
 
     await this.invalidate(union(keys, expandedSets));
   }
 
-  async doRemoveInvalidation(effect: CacheEffect & { op: 'remove' }) {
+  private async doRemoveInvalidation(effect: CacheEffect & { op: 'remove' }) {
     const { redis } = this.context;
     const { ids } = effect;
     const multi = redis.multi();
@@ -104,54 +106,47 @@ export default class InvalidationHandler {
     await this.invalidate(dependentKeys);
   }
 
-  async invalidate(keys: string[]): Promise<string[]> {
-    if (!keys.length) return [];
+  private async invalidate(keys: string[]) {
+    if (!keys.length) return;
 
     const { redis } = this.context;
     const multi = redis.multi();
     keys.forEach((key) => multi.delquery(key));
     const results = await multi.exec();
-    if (!results || !results.length) return [];
+    if (!results || !results.length) return;
 
-    const invalidatedKeys: string[] = [];
+    const keysInvalidated: string[] = [];
     results.forEach(([err, didExist], index) => {
       if (err !== null) return;
       const key = keys[index];
-      if (key && didExist) invalidatedKeys.push(key);
+      if (key && didExist) keysInvalidated.push(key);
     });
 
-    return invalidatedKeys;
+    if (!keysInvalidated.length) return;
+    await this.rehydrate(keysInvalidated);
   }
 
-  async rehydrate(keys: string[]) {
+  private async rehydrate(keys: string[]) {
     if (!keys.length) return;
 
+    const { lookupCachedQuery } = this.context;
     const promises = keys.map(async (key) => {
-      const query = this.findCachedQueryByKey(key);
+      const { hash, params } = parseCacheKey(key);
+      const query = lookupCachedQuery.get(hash);
       if (!query || !query.config.rehydrate) return;
-
-      const params = parseParamsFromQueryKey(key);
       await query.exec({ params, limit: query.config.cacheCount, skipCache: true });
     });
 
     await Promise.all(promises);
   }
 
-  async temporarilyBlockHashes(hashes: Set<string>) {
-    if (!hashes.size) return;
-
-    const { redis } = this.context;
-    const multi = redis.multi();
-    hashes.forEach((hash) => multi.setex(`X:${hash}`, 1, 1));
-    await multi.exec();
-  }
-
-  collectInsertInvalidations(model: string, docs: AnyObject[]) {
+  private collectInsertInvalidations(model: string, docs: AnyObject[]) {
     const keys = new Set<string>();
     const sets = new Set<string>();
     const hashes = new Set<string>();
-    const { allCachedQueries } = this.context;
-    allCachedQueries.forEach((query) => {
+    const { lookupCachedQuery } = this.context;
+    // eslint-disable-next-line no-restricted-syntax
+    for (const query of lookupCachedQuery.values()) {
       docs.forEach((doc) => {
         const info = getInsertInvalidation(query, model, doc);
         if (!info) return;
@@ -159,17 +154,11 @@ export default class InvalidationHandler {
         if ('all' in info) sets.add(`A:${info.hash}`);
         if ('key' in info) keys.add(info.key);
       });
-    });
+    }
     return { keys, sets, hashes };
   }
 
-  findCachedQueryByKey(key: string) {
-    const { allCachedQueries } = this.context;
-    const match = key.match(/^Q:(.*?)\[/);
-    if (match && match[1]) {
-      const found = allCachedQueries.find((cq) => cq.hash === match[1]);
-      if (found) return found;
-    }
-    return null;
+  finish() {
+    return this.promises.flush();
   }
 }

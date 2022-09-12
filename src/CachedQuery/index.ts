@@ -145,8 +145,6 @@ class CachedQuery<
     try {
       const bson = serialize(result);
       const depends = collectPopulatedIds(result, populate);
-      // const isBlocked = await redis.exists(`X:${hash}`);
-      // if (isBlocked) return; // do not cache this result
       const allKey = `A:${hash}`;
       // Cache result, and create keys used for tracking invalidations
       const multi = redis.multi();

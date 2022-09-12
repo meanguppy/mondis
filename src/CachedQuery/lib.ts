@@ -158,3 +158,27 @@ export function jsonHash(input: unknown) {
     .digest('base64')
     .substring(0, 16);
 }
+
+export class PromiseQueue {
+  active = 0;
+
+  _resolves: Array<() => void> = [];
+
+  add(promise: Promise<unknown>) {
+    this.active += 1;
+    promise.finally(() => {
+      this.active -= 1;
+      if (this.active === 0 && this._resolves.length) {
+        this._resolves.forEach((res) => res());
+        this._resolves = [];
+      }
+    });
+  }
+
+  flush() {
+    if (this.active === 0) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      this._resolves.push(resolve);
+    });
+  }
+}
