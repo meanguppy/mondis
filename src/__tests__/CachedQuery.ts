@@ -1,75 +1,56 @@
-import { Mongoose, Schema, Types } from 'mongoose';
+import mongoose, { Schema, Types } from 'mongoose';
 import Redis from 'ioredis';
 import type CachedQuery from 'src/CachedQuery';
 import type { CachedQueryConfig } from 'src/CachedQuery';
 import type { HasObjectId } from 'src/CachedQuery/types';
 import Mondis from '../mondis';
 
-const DriverSchema = new Schema({
-  name: String,
-});
+const redis = new Redis(6379, 'localhost');
+const mondis = new Mondis({ redis, mongoose });
+mongoose.plugin(mondis.plugin());
 
-const VehicleSchema = new Schema({
+const Vehicle = mongoose.model('Vehicle', new Schema({
   kind: String,
   price: Number,
   driver: {
     type: Schema.Types.ObjectId,
     ref: 'Driver',
   },
-});
+}));
 
-async function prepareDatabase(mongoose: Mongoose) {
-  const Vehicle = mongoose.model('Vehicle', VehicleSchema);
-  const Driver = mongoose.model('Driver', DriverSchema);
-  const drivers = await Driver.insertMany([
-    { name: 'Henry' },
-    { name: 'John' },
-    { name: 'Jane' },
-    { name: 'Mary' },
-  ]);
-  await Vehicle.insertMany([
-    { kind: 'bike', driver: drivers[0]?._id, price: 510 },
-    { kind: 'car', driver: drivers[1]?._id, price: 3100 },
-    { kind: 'car', driver: drivers[2]?._id, price: 11900 },
-    { kind: 'car', driver: drivers[3]?._id, price: 6500 },
-    { kind: 'truck', driver: drivers[0]?._id, price: 5100 },
-    { kind: 'truck', price: 7800 },
-    { kind: 'truck', driver: drivers[2]?._id, price: 14200 },
-    { kind: 'plane', driver: drivers[1]?._id, price: 88000 },
-    { kind: 'plane', driver: drivers[3]?._id, price: 125000 },
-  ]);
-  return {
-    Vehicle,
-    Driver,
-  };
-}
+const Driver = mongoose.model('Driver', new Schema({
+  name: String,
+}));
 
 describe('CachedQuery tests', () => {
-  let mongoose: Mongoose;
-  let redis: Redis;
-  let mondis: Mondis;
-  let models: Awaited<ReturnType<typeof prepareDatabase>>;
-
   beforeEach(async () => {
-    mongoose = new Mongoose();
-    redis = new Redis(6379, 'localhost');
-    mondis = new Mondis({ redis, mongoose });
-    mongoose.plugin(mondis.plugin());
+    mondis.lookupCachedQuery.clear();
     await mongoose.connect('mongodb://localhost/testing');
     await Promise.all([
-      mongoose.connection.db.dropDatabase(),
       redis.flushall(),
+      Driver.deleteMany({}),
+      Vehicle.deleteMany({}),
     ]);
-    models = await prepareDatabase(mongoose);
-  });
-
-  afterEach(() => {
-    mongoose.disconnect();
-    redis.disconnect();
+    const drivers = await Driver.insertMany([
+      { name: 'Henry' },
+      { name: 'John' },
+      { name: 'Jane' },
+      { name: 'Mary' },
+    ]);
+    await Vehicle.insertMany([
+      { kind: 'bike', driver: drivers[0]?._id, price: 510 },
+      { kind: 'car', driver: drivers[1]?._id, price: 3100 },
+      { kind: 'car', driver: drivers[2]?._id, price: 11900 },
+      { kind: 'car', driver: drivers[3]?._id, price: 6500 },
+      { kind: 'truck', driver: drivers[0]?._id, price: 5100 },
+      { kind: 'truck', price: 7800 },
+      { kind: 'truck', driver: drivers[2]?._id, price: 14200 },
+      { kind: 'plane', driver: drivers[1]?._id, price: 88000 },
+      { kind: 'plane', driver: drivers[3]?._id, price: 125000 },
+    ]);
   });
 
   async function testWith(cq: CachedQuery, params: unknown[]) {
-    const { Vehicle } = models;
     await cq.exec(params);
     await cq.exec({ params });
     await Vehicle.deleteOne({ kind: 'car' });
@@ -109,8 +90,8 @@ describe('CachedQuery tests', () => {
         it(`${name}: cacheCount=${cacheCount}, populate=${populate.length}`, async () => {
           const BuiltQuery = mondis.CachedQuery({
             ...conf,
-            // cacheCount,
-            // populate,
+            cacheCount,
+            populate,
             model: 'Vehicle',
           } as unknown as CachedQueryConfig<HasObjectId, unknown[]>);
           await testWith(BuiltQuery, params);
@@ -138,7 +119,7 @@ describe('CachedQuery tests', () => {
   doTests('Unique query', {
     query: (_id: Types.ObjectId) => ({ _id }),
     unique: true,
-  }, [new Types.ObjectId()]);
+  }, [new mongoose.Types.ObjectId()]);
 
   doTests('Complex query', {
     query: (minPrice: number) => ({ price: { $gte: minPrice } }),

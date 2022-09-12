@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for src/CachedQuery/lib.ts</title>
+    <title>Code coverage report for src/CachedQuery/mongoOperators.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/CachedQuery</a> lib.ts</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/CachedQuery</a> mongoOperators.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">85.71% </span>
+                <span class="strong">78.63% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>90/105</span>
+                <span class='fraction'>92/117</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">78.43% </span>
+                <span class="strong">67.27% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>40/51</span>
+                <span class='fraction'>37/55</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.09% </span>
+                <span class="strong">96.55% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>27/31</span>
+                <span class='fraction'>28/29</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">91.76% </span>
+                <span class="strong">85.86% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>78/85</span>
+                <span class='fraction'>79/92</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -247,64 +247,20 @@
 <a name='L182'></a><a href='#L182'>182</a>
 <a name='L183'></a><a href='#L183'>183</a>
 <a name='L184'></a><a href='#L184'>184</a>
-<a name='L185'></a><a href='#L185'>185</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">487x</span>
-<span class="cline-any cline-yes">487x</span>
-<span class="cline-any cline-yes">487x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">487x</span>
-<span class="cline-any cline-yes">483x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">132x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">60x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L185'></a><a href='#L185'>185</a>
+<a name='L186'></a><a href='#L186'>186</a>
+<a name='L187'></a><a href='#L187'>187</a>
+<a name='L188'></a><a href='#L188'>188</a>
+<a name='L189'></a><a href='#L189'>189</a>
+<a name='L190'></a><a href='#L190'>190</a>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">284x</span>
-<span class="cline-any cline-yes">284x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">197x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -319,42 +275,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">528x</span>
-<span class="cline-any cline-yes">136x</span>
-<span class="cline-any cline-yes">68x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">68x</span>
-<span class="cline-any cline-yes">264x</span>
-<span class="cline-any cline-yes">264x</span>
-<span class="cline-any cline-yes">264x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">197x</span>
-<span class="cline-any cline-yes">197x</span>
-<span class="cline-any cline-yes">197x</span>
-<span class="cline-any cline-yes">197x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">197x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">68x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">254x</span>
-<span class="cline-any cline-yes">254x</span>
-<span class="cline-any cline-yes">254x</span>
-<span class="cline-any cline-yes">254x</span>
-<span class="cline-any cline-yes">254x</span>
-<span class="cline-any cline-yes">134x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">120x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -364,256 +287,354 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">20x</span>
-<span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-yes">20x</span>
-<span class="cline-any cline-yes">20x</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">12x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-yes">24x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">128x</span>
+<span class="cline-any cline-yes">128x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">128x</span>
+<span class="cline-any cline-yes">128x</span>
+<span class="cline-any cline-yes">127x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">51x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">384x</span>
-<span class="cline-any cline-yes">384x</span>
-<span class="cline-any cline-yes">384x</span>
-<span class="cline-any cline-yes">384x</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">257x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">116x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">117x</span>
+<span class="cline-any cline-yes">117x</span>
+<span class="cline-any cline-yes">117x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">117x</span>
+<span class="cline-any cline-yes">116x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">116x</span>
+<span class="cline-any cline-yes">116x</span>
+<span class="cline-any cline-yes">116x</span>
+<span class="cline-any cline-yes">116x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">112x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">117x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">24x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Types } from 'mongoose';
-import crypto from 'crypto';
-import sift from 'sift';
-import type {
-  AnyObject,
-  QueryFilter,
-  HasObjectId,
-  QueryPopulation,
-  QueryKeysClassification,
-} from './types';
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">117x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">188x</span>
+<span class="cline-any cline-yes">187x</span>
+<span class="cline-any cline-yes">187x</span>
+<span class="cline-any cline-yes">259x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">92x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { Query } from 'mongoose';
+import type { AnyObject } from './types';
+import { getValue, setValue, unsetValue, updateValue } from './lib';
 &nbsp;
-function walk(
-  target: unknown,
-  path: string,
-  buildPath: boolean,
-  cb: (found: AnyObject, key: string) =&gt; void,
-) {
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (target == null) <span class="cstat-no" title="statement not covered" >return;</span>
-  const split = path.split('.');
-  const key = split[0] || <span class="branch-1 cbranch-no" title="branch not covered" >'';</span>
+export type MongoOperators = Record&lt;(typeof operators)[number], AnyObject&gt;;
 &nbsp;
-  if (split.length === 1) {
-    cb(target as AnyObject, key);
-  } else {
-    const nextTarget = (target as AnyObject)[key];
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (buildPath &amp;&amp; nextTarget == null) {
-      (<span class="cstat-no" title="statement not covered" >target as AnyObject)[key] = {};</span>
+export type MongooseQueryUpdate = ReturnType&lt;Query&lt;unknown, unknown&gt;['getUpdate']&gt;;
+&nbsp;
+/**
+ * Unsupported operators:
+ *  - $pull: requires expression evaluation.
+ * TODO at some stage:
+ *  - $currentDate
+ *  - $bit
+ *  - $pullAll
+ *  - array update modifiers: $each, $position, $slice, $sort
+ */
+const operators = [
+  '$inc',
+  '$min',
+  '$max',
+  '$mul',
+  '$rename',
+  '$set',
+  '$setOnInsert',
+  '$unset',
+  '$addToSet',
+  '$pop',
+  '$push',
+] as const;
+&nbsp;
+const handlers = {
+  $inc(target: {}, path: string, val: unknown) {
+    const num = (() =&gt; {
+      if (typeof val === 'number' &amp;&amp; !Number.isNaN(val)) return val;
+      if (val === true) return 1;
+      if (val === false) return 0;
+      if (val instanceof Date) return val.valueOf();
+<span class="cstat-no" title="statement not covered" >      throw Error('$inc amount must be a numeric type');</span>
+    })();
+    updateValue(target, path, (found: unknown) =&gt; {
+      if (found === undefined) return val;
+      if (typeof found === 'number') return found + num;
+<span class="cstat-no" title="statement not covered" >      throw Error('$inc target field must be a numeric type');</span>
+    });
+  },
+  $min(target: {}, path: string, val: unknown) {
+    const current = getValue(target, path) as number;
+    if ((val as number) &lt; current) setValue(target, path, val);
+  },
+  $max(target: {}, path: string, val: unknown) {
+    const current = getValue(target, path) as number;
+    if ((val as number) &gt; current) setValue(target, path, val);
+  },
+  $mul(target: {}, path: string, val: unknown) {
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (typeof val !== 'number') <span class="cstat-no" title="statement not covered" >throw Error('$mul target field must be a number');</span>
+    updateValue(target, path, (found: unknown) =&gt; {
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (found === undefined) <span class="cstat-no" title="statement not covered" >return 0;</span>
+      if (typeof found === 'number') return found * val;
+<span class="cstat-no" title="statement not covered" >      throw Error('$mul target field must be a numeric type');</span>
+    });
+  },
+  $rename(target: {}, path: string, val: unknown) {
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (typeof val !== 'string') <span class="cstat-no" title="statement not covered" >throw Error('$rename target field must be a string');</span>
+    const found: unknown = unsetValue(target, path);
+    setValue(target, val, found);
+  },
+  $set(target: {}, path: string, val: unknown) {
+    setValue(target, path, val);
+  },
+  $setOnInsert() {
+    // No-op for an existing document, this is handled during upsert instead.
+  },
+  $unset(target: {}, path: string) {
+    unsetValue(target, path);
+  },
+  $addToSet(target: {}, path: string, val: unknown) {
+    const found: unknown = getValue(target, path);
+    if (found === undefined) {
+      setValue(target, path, [val]);
+    } else if (Array.isArray(found)) {
+      if (!found.includes(val)) found.push(val);
+    } else <span class="missing-if-branch" title="else path not taken" >E</span>{
+<span class="cstat-no" title="statement not covered" >      throw Error('$addToSet target field must be an array');</span>
     }
-    const remainder = split.slice(1).join('.');
-    walk(nextTarget, remainder, buildPath, cb);
+  },
+  $pop(target: {}, path: string, val: unknown) {
+    const found: unknown = getValue(target, path);
+    if (found === undefined) {
+      /* do nothing */
+    } else if (Array.isArray(found)) {
+      if (val === 1 || val === true) {
+        found.shift();
+      } else if (val === -1) {
+        found.pop();
+      } else <span class="missing-if-branch" title="else path not taken" >E</span>{
+<span class="cstat-no" title="statement not covered" >        throw Error('$pop value must be 1 or -1');</span>
+      }
+    } else <span class="missing-if-branch" title="else path not taken" >E</span>{
+<span class="cstat-no" title="statement not covered" >      throw Error('$pop target field must be an array');</span>
+    }
+  },
+  $push(target: {}, path: string, val: unknown) {
+    const found: unknown = getValue(target, path);
+    if (found === undefined) {
+      setValue(target, path, [val]);
+    } else if (Array.isArray(found)) {
+      found.push(val);
+    } else <span class="missing-if-branch" title="else path not taken" >E</span>{
+<span class="cstat-no" title="statement not covered" >      throw Error('$push target field must be an array');</span>
+    }
+  },
+};
+&nbsp;
+function isSupportedOperator(name: string): name is typeof operators[number] {
+  return operators.includes(name as never);
+}
+&nbsp;
+function assertOperatorIsValid(key: string, val: unknown): asserts val is AnyObject {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!val || typeof val !== 'object') <span class="cstat-no" title="statement not covered" >throw Error(`Invalid operator value for ${key}`);</span>
+}
+&nbsp;
+function parseUpdateQuery(input: MongooseQueryUpdate) {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!input) <span class="cstat-no" title="statement not covered" >return {};</span>
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (Array.isArray(input)) <span class="cstat-no" title="statement not covered" >throw Error('Updating with aggregation pipeline is not supported');</span>
+  const result: Partial&lt;MongoOperators&gt; = {};
+  function addFieldToSetOp(key: string, val: unknown) {
+    if (!result.$set) result.$set = {};
+    result.$set[key] = val;
   }
-}
-&nbsp;
-export function updateValue(target: unknown, path: string, cb: (value: unknown) =&gt; unknown) {
-  walk(target, path, true, (found, key) =&gt; { found[key] = cb(found[key]); });
-}
-&nbsp;
-export function setValue(target: unknown, path: string, value: unknown) {
-  walk(target, path, true, (found, key) =&gt; { found[key] = value; });
-}
-&nbsp;
-export function unsetValue(target: unknown, path: string) {
-  let result: unknown;
-  walk(target, path, false, (found, key) =&gt; {
-    result = found[key];
-    delete found[key];
+  Object.entries(input).forEach(([key, val]) =&gt; {
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (key.charAt(0) !== '$') {
+<span class="cstat-no" title="statement not covered" >      addFieldToSetOp(key, val);</span>
+    } else if (isSupportedOperator(key)) {
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (!val) <span class="cstat-no" title="statement not covered" >return;</span>
+      assertOperatorIsValid(key, val);
+      if (key === '$set') { // handle separately to merge with top-level fields
+        Object.entries(val).forEach(([setKey, setVal]) =&gt; {
+          addFieldToSetOp(setKey, setVal);
+        });
+      } else {
+        result[key] = val;
+      }
+    } else <span class="missing-if-branch" title="else path not taken" >E</span>{
+<span class="cstat-no" title="statement not covered" >      throw Error(`Unsupported update operator ${key}`);</span>
+    }
   });
   return result;
 }
 &nbsp;
-export function getValue(target: unknown, path: string) {
-  let result: unknown;
-  walk(target, path, false, (found, key) =&gt; { result = found[key]; });
-  return result;
+function getFilterValue(value: unknown): { add: boolean, value?: unknown } {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (value &amp;&amp; typeof value === 'object') {
+    const hasEqOp = <span class="cstat-no" title="statement not covered" >'$eq' in value;</span>
+<span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (hasEqOp) <span class="cstat-no" title="statement not covered" >return { add: true, value: (value as AnyObject)['$eq'] };</span></span>
+    const someMongoOp = <span class="cstat-no" title="statement not covered" >Object.keys(value).some(<span class="fstat-no" title="function not covered" >(k</span>ey) =&gt; <span class="cstat-no" title="statement not covered" >key.startsWith('$'))</span>;</span>
+<span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (someMongoOp) <span class="cstat-no" title="statement not covered" >return { add: false };</span></span>
+  }
+  return { add: true, value };
 }
 &nbsp;
-export function hasObjectId(target: unknown): target is HasObjectId {
-  return (
-    !!target
-    &amp;&amp; typeof target === 'object'
-    &amp;&amp; (target as { _id?: unknown })._id instanceof Types.ObjectId
-  );
-}
-&nbsp;
-/**
- * Extract all ObjectIds of documents based on the
- * mongoose population config. Embedded documents not included
- */
-export function collectPopulatedIds(
-  docs: Partial&lt;HasObjectId&gt;[],
-  populations?: QueryPopulation[],
-) {
-  const initial = docs.filter((doc) =&gt; !!doc._id).map((doc) =&gt; String(doc._id));
-  if (!populations?.length) return initial;
-  const result = new Set(initial);
-&nbsp;
-  docs.forEach((doc) =&gt; {
-    populations.forEach(({ path, populate: innerPopulate }) =&gt; {
-      const inner = getValue(doc, path);
-      if (!inner || typeof inner !== 'object') return;
-&nbsp;
-      const items: unknown[] = Array.isArray(inner) ? <span class="branch-0 cbranch-no" title="branch not covered" >inner </span>: [inner];
-      items.forEach((innerVal) =&gt; {
-        <span class="missing-if-branch" title="if path not taken" >I</span>if (!hasObjectId(innerVal)) <span class="cstat-no" title="statement not covered" >return;</span>
-        <span class="missing-if-branch" title="if path not taken" >I</span>if (innerPopulate) {
-<span class="cstat-no" title="statement not covered" >          collectPopulatedIds([innerVal], innerPopulate).forEach(<span class="fstat-no" title="function not covered" >(i</span>d) =&gt; <span class="cstat-no" title="statement not covered" >result.add(id))</span>;</span>
-        } else {
-          result.add(String(innerVal._id));
-        }
+function applyUpdates(targets: Array&lt;{}&gt;, update: Partial&lt;MongoOperators&gt;) {
+  Object.entries(update).forEach(([op, paths]) =&gt; {
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!isSupportedOperator(op)) <span class="cstat-no" title="statement not covered" >throw Error(`Unsupported update operator ${op}`);</span>
+    const handler = handlers[op];
+    Object.entries(paths).forEach(([path, val]) =&gt; {
+      if (val === undefined) return;
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (path.includes('.$')) <span class="cstat-no" title="statement not covered" >throw Error('Updating arrays with &lt;field&gt;.$ is unsupported');</span>
+      targets.forEach((target) =&gt; {
+        handler(target, path, val);
       });
     });
   });
-&nbsp;
-  return [...result];
 }
 &nbsp;
-/**
- * Splices an array to emulate skipping and limiting, with safe params.
- */
-export function skipAndLimit&lt;T&gt;(array: T[], skip?: number, limit?: number) {
-  skip = (typeof skip === 'number') ? skip : 0;
-  limit = (typeof limit === 'number') ? limit : undefined;
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (skip &lt; 0) <span class="cstat-no" title="statement not covered" >throw Error('Skip must be zero or a positive integer');</span>
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (limit !== undefined &amp;&amp; limit &lt;= 0) <span class="cstat-no" title="statement not covered" >throw Error('Limit must be a positive integer');</span>
-  if (skip &gt; 0 || limit) {
-    return array.slice(skip, limit ? (skip + limit) : undefined);
-  }
-  return array;
-}
-&nbsp;
-/**
- * Classifies all keys in the query:
- * - Which keys are static and which are configurable?
- * - Is any configurable query complex (not an equality comparison)?
- */
-export function classifyQueryKeys&lt;T, P extends unknown[]&gt;(
-  input: QueryFilter&lt;T&gt; | ((...args: P) =&gt; QueryFilter&lt;T&gt;),
-): QueryKeysClassification {
-  if (input &amp;&amp; typeof input === 'object') {
-    return { matcher: sift&lt;unknown&gt;(input), dynamicKeys: [], complexQuery: false };
-  }
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (!input || typeof input !== 'function') <span class="cstat-no" title="statement not covered" >throw Error('Bad query configuration');</span>
-&nbsp;
-  // map params to objects, used to compare by reference without risk of ambiguous comparison
-  const params = Array(input.length).fill(null).map(() =&gt; ({})) as P;
-  const query = (input as (...args: P) =&gt; QueryFilter&lt;T&gt;)(...params);
-&nbsp;
-  // recursively search query object for parameters (empty objects)
-  let complexQuery = false;
-  const dynamicKeys: string[] = [];
-  function findParam(key: string, target: unknown, inside = false) {
-    if (!target || typeof target !== 'object') return;
-    const paramIdx = params.indexOf(target);
-    if (paramIdx &gt;= 0) {
-      if (inside) complexQuery = true;
-      dynamicKeys[paramIdx] = key;
-    } else {
-      Object.values(target).forEach((v) =&gt; findParam(key, v, true));
-    }
-  }
-  Object.entries(query).forEach(([k, v]) =&gt; findParam(k, v));
-&nbsp;
-  const staticKeys: AnyObject = {};
-  Object.entries(query).forEach(([k, v]) =&gt; {
-    if (!dynamicKeys.includes(k)) {
-      staticKeys[k] = v;
-    }
+export function buildUpsertedDocument(filter: AnyObject, rawUpdate: MongooseQueryUpdate) {
+  const update = parseUpdateQuery(rawUpdate);
+  const doc: AnyObject = {};
+  // Find keys from `filter` that should be `$set` in the upserted doc
+  Object.entries(filter).forEach(([field, rawValue]) =&gt; {
+    const { add, value } = getFilterValue(rawValue);
+    if (add) doc[field] = value;
   });
-&nbsp;
-  return { matcher: sift(staticKeys), dynamicKeys, complexQuery };
+  // Merge $setOnInsert into $set, since they are the same during upsert
+  const { $set, $setOnInsert } = update;
+  applyUpdates([doc], { ...update, $set: { ...$set, ...$setOnInsert } });
+  return doc;
 }
 &nbsp;
-export function jsonHash(input: unknown) {
-  const json = JSON.stringify(input);
-  return crypto
-    .createHash('sha1')
-    .update(json)
-    .digest('base64')
-    .substring(0, 16);
-}
-&nbsp;
-export class PromiseQueue {
-  active = 0;
-&nbsp;
-  _resolves: Array&lt;() =&gt; void&gt; = [];
-&nbsp;
-  add(promise: Promise&lt;unknown&gt;) {
-    this.active += 1;
-    promise.finally(() =&gt; {
-      this.active -= 1;
-      <span class="missing-if-branch" title="if path not taken" >I</span>if (this.active === 0 &amp;&amp; this._resolves.length) {
-<span class="cstat-no" title="statement not covered" >        this._resolves.forEach(<span class="fstat-no" title="function not covered" >(r</span>es) =&gt; <span class="cstat-no" title="statement not covered" >res())</span>;</span>
-<span class="cstat-no" title="statement not covered" >        this._resolves = [];</span>
-      }
-    });
-  }
-&nbsp;
-<span class="fstat-no" title="function not covered" >  flush(</span>) {
-<span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (this.active === 0) <span class="cstat-no" title="statement not covered" >return Promise.resolve();</span></span>
-<span class="cstat-no" title="statement not covered" >    return new Promise&lt;void&gt;(<span class="fstat-no" title="function not covered" >(r</span>esolve) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >      this._resolves.push(resolve);</span>
-    });
-  }
+export function applyUpdateQuery(targets: Array&lt;{}&gt;, rawUpdate: MongooseQueryUpdate) {
+  applyUpdates(targets, parseUpdateQuery(rawUpdate));
 }
 &nbsp;</pre></td></tr></table></pre>
 
