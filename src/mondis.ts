@@ -92,6 +92,10 @@ class Mondis {
     return bindPlugin(this._invalidator);
   }
 
+  rehydrate() {
+    return this._invalidator.rehydrate();
+  }
+
   CachedQuery<T extends HasObjectId, P extends unknown[] = never>(config: CachedQueryConfig<T, P>) {
     const cachedQuery = new CachedQuery<T, P>(this, config);
     this.allCachedQueries.push(cachedQuery as unknown as CachedQuery);

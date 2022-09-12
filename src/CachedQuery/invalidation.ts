@@ -55,18 +55,19 @@ function getInsertInvalidation(
   return { hash: cq.hash, key: cq.getCacheKey(params) };
 }
 
-function parseParamsFromQueryKey(key: string) {
-  const result = key.match(/^Q:[^[]+(.+?)$/);
-  try {
-    const match = result && result[1];
-    if (match) return JSON.parse(match) as unknown[];
-  } catch (err) {
-    // logger.warn({ err, tag: 'CACHE_INVALIDATION_ERROR' }, 'Failed to parse JSON');
-  }
-  return [];
+const MATCH_CACHE_KEY = /^Q:(.+?)(\[.+\])$/;
+function parseCacheKey(key: string) {
+  const [, hash, params] = key.match(MATCH_CACHE_KEY) || [];
+  if (!hash || !params) throw Error('Failed to parse cache key');
+  return {
+    hash,
+    params: JSON.parse(params) as unknown[],
+  };
 }
 
 export default class InvalidationHandler {
+  keysInvalidated = new Set<string>();
+
   constructor(
     readonly context: Mondis,
   ) { }
@@ -83,8 +84,6 @@ export default class InvalidationHandler {
     const { modelName, docs } = effect;
 
     const { keys, sets } = this.collectInsertInvalidations(modelName, docs);
-    // this.temporarilyBlockHashes(hashes);
-
     const expandedSets = (sets.size) ? await redis.sunion(...sets) : [];
     if (!keys.size && !expandedSets.length) return; // nothing to do
 
@@ -104,46 +103,38 @@ export default class InvalidationHandler {
     await this.invalidate(dependentKeys);
   }
 
-  async invalidate(keys: string[]): Promise<string[]> {
-    if (!keys.length) return [];
+  async invalidate(keys: string[]) {
+    if (!keys.length) return;
 
     const { redis } = this.context;
     const multi = redis.multi();
     keys.forEach((key) => multi.delquery(key));
     const results = await multi.exec();
-    if (!results || !results.length) return [];
+    if (!results || !results.length) return;
 
-    const invalidatedKeys: string[] = [];
     results.forEach(([err, didExist], index) => {
       if (err !== null) return;
       const key = keys[index];
-      if (key && didExist) invalidatedKeys.push(key);
+      if (key && didExist) {
+        this.keysInvalidated.add(key);
+      }
     });
-
-    return invalidatedKeys;
   }
 
-  async rehydrate(keys: string[]) {
-    if (!keys.length) return;
+  async rehydrate() {
+    const { keysInvalidated } = this;
+    if (!keysInvalidated.size) return;
+    const keys = Array.from(keysInvalidated);
+    keysInvalidated.clear();
 
     const promises = keys.map(async (key) => {
-      const query = this.findCachedQueryByKey(key);
+      const { hash, params } = parseCacheKey(key);
+      const query = this.findCachedQueryByHash(hash);
       if (!query || !query.config.rehydrate) return;
-
-      const params = parseParamsFromQueryKey(key);
       await query.exec({ params, limit: query.config.cacheCount, skipCache: true });
     });
 
     await Promise.all(promises);
-  }
-
-  async temporarilyBlockHashes(hashes: Set<string>) {
-    if (!hashes.size) return;
-
-    const { redis } = this.context;
-    const multi = redis.multi();
-    hashes.forEach((hash) => multi.setex(`X:${hash}`, 1, 1));
-    await multi.exec();
   }
 
   collectInsertInvalidations(model: string, docs: AnyObject[]) {
@@ -163,13 +154,8 @@ export default class InvalidationHandler {
     return { keys, sets, hashes };
   }
 
-  findCachedQueryByKey(key: string) {
+  findCachedQueryByHash(hash: string) {
     const { allCachedQueries } = this.context;
-    const match = key.match(/^Q:(.*?)\[/);
-    if (match && match[1]) {
-      const found = allCachedQueries.find((cq) => cq.hash === match[1]);
-      if (found) return found;
-    }
-    return null;
+    return allCachedQueries.find((cq) => cq.hash === hash);
   }
 }
