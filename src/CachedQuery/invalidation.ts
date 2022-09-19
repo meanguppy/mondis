@@ -1,4 +1,3 @@
-import type { RedisCommander } from 'ioredis';
 import type Mondis from '../mondis';
 import type CachedQuery from './index';
 import type { AnyObject, CacheEffect } from './types';
@@ -15,17 +14,6 @@ function union<T>(...targets: (T[] | Set<T>)[]) {
     target.forEach((val) => result.add(val));
   });
   return Array.from(result);
-}
-
-type RedisMultiResult = Awaited<ReturnType<RedisCommander['exec']>>;
-function flattenRedisMulti(input: RedisMultiResult) {
-  if (!input) return [];
-  const result: unknown[] = [];
-  input.forEach(([err, val]) => {
-    if (err !== null) return;
-    result.push(val);
-  });
-  return result;
 }
 
 /**
@@ -87,20 +75,18 @@ export default class InvalidationHandler {
     const { modelName, docs } = effect;
 
     const { keys, sets } = this.collectInsertInvalidations(modelName, docs);
-    const expandedSets = (sets.size) ? await redis.sunion(...sets) : [];
-    if (!keys.size && !expandedSets.length) return; // nothing to do
+    const fetchedKeys = (sets.size) ? await redis.sunion(...sets) : [];
+    if (!keys.size && !fetchedKeys.length) return; // nothing to do
 
-    await this.invalidate(union(keys, expandedSets));
+    await this.invalidate(union(keys, fetchedKeys));
   }
 
   private async doRemoveInvalidation(effect: CacheEffect & { op: 'remove' }) {
     const { redis } = this.context;
     const { ids } = effect;
-    const multi = redis.multi();
-    ids.forEach((id) => multi.smembers(`O:${String(id)}`));
-    const result = flattenRedisMulti(await multi.exec()) as string[][];
-    if (!result) return;
-    const dependentKeys = union(...result);
+    const dependentKeys = await redis.sunion(
+      ...ids.map((id) => `O:${String(id)}`),
+    );
     if (!dependentKeys.length) return; // nothing to do
 
     await this.invalidate(dependentKeys);
