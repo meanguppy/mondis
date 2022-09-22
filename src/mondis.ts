@@ -67,18 +67,17 @@ class Mondis {
 
   private _mongoose?: Mongoose;
 
-  private _invalidator: InvalidationHandler;
+  private invalidator: InvalidationHandler;
 
-  lookupCachedQuery: Map<string, CachedQuery>;
+  readonly lookupCachedQuery = new Map<string, CachedQuery>();
 
-  constructor(config?: MondisConfiguration) {
-    this._invalidator = new InvalidationHandler(this);
-    this.lookupCachedQuery = new Map<string, CachedQuery>();
-    this.init(config ?? {});
+  constructor(config: MondisConfiguration = {}) {
+    this.init(config);
+    this.invalidator = new InvalidationHandler(this);
   }
 
-  init(config: MondisConfiguration) {
-    const { redis, mongoose } = config;
+  init(clients: Pick<MondisConfiguration, 'redis' | 'mongoose'>) {
+    const { redis, mongoose } = clients;
     if (redis) {
       Object.entries(commands).forEach(([name, conf]) => {
         redis.defineCommand(name, conf);
@@ -89,7 +88,7 @@ class Mondis {
   }
 
   plugin() {
-    return bindPlugin(this._invalidator);
+    return bindPlugin(this.invalidator);
   }
 
   CachedQuery<T extends HasObjectId, P extends unknown[] = never>(config: CachedQueryConfig<T, P>) {

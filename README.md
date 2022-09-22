@@ -46,7 +46,7 @@ type Configuration<T extends HasObjectId, P extends unknown[]> = {
 | select             | `{}`         | Mongoose document projection |
 | populate           | `[]`         | Mongoose document populations |
 | sort               | `null`       | Mongoose sorting order |
-| cacheCount         | `20`         | Maximum number of documents to be cached (use `Infinity` for unlimited) |
+| cacheCount         | `Infinity`   | Maximum number of documents to be cached |
 | expiry             | `43200`      | Number of seconds the query will be cached (refreshes during fetch and rehydration) |
 | unique             | `false`      | Whether or not the query uniquely identifies a single document (optimizes insert invalidations) |
 | invalidateOnInsert | `true`       | Whether or not the query should be invalidated on insert events |
@@ -55,8 +55,8 @@ type Configuration<T extends HasObjectId, P extends unknown[]> = {
 ## Execution
 
 **NOTE:** If the `skip` and/or `limit` values lie outside of the query's `cacheCount` range, the execution **will** fall back to mongo, and the result will not be cached! Keep the following details in mind:
-* The default `cacheCount` is 20.
 * If `limit` is `undefined` or not specified during execution, the query will always fall back to mongo **unless** `cacheCount` is set to `Infinity`!
+* The default `cacheCount` is `Infinity`.
 
 [(further reading: Setting an appropriate `cacheCount`)](#setting-an-appropriate-cachecount)
 
@@ -178,6 +178,8 @@ Queries that change based on _when_ they are called should never be cached!
 
 * ~~Handle invalidation for upserted documents~~
 * ~~Handle query rehydration after invalidation~~
-* Support the remaining update operators
+* Support the remaining update operators:
+  * `$currentDate`, `$bit`, `$pullAll`
+  * Array modifiers: `$each`, `$position`, `$slice`, `$sort`
 * Expand testing suite
 * Write documentation on implementation details

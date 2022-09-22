@@ -1,7 +1,6 @@
 import type Mondis from '../mondis';
 import type CachedQuery from './index';
 import type { AnyObject, CacheEffect } from './types';
-import { PromiseQueue } from './lib';
 
 type InsertInvalidation =
   | { hash: string, all: true }
@@ -52,8 +51,6 @@ function parseCacheKey(key: string) {
 }
 
 export default class InvalidationHandler {
-  private promises = new PromiseQueue();
-
   constructor(
     readonly context: Mondis,
   ) { }
@@ -61,13 +58,8 @@ export default class InvalidationHandler {
   // TODO: add queueing mechanism for optimized invalidation batching?
   // TODO: implement 'blocking' hash key to prevent edge-case race conditions.
   onCacheEffect(effect: CacheEffect) {
-    const { promises } = this;
-    if (effect.op === 'insert') {
-      promises.add(this.doInsertInvalidation(effect));
-    }
-    if (effect.op === 'remove') {
-      promises.add(this.doRemoveInvalidation(effect));
-    }
+    if (effect.op === 'insert') this.doInsertInvalidation(effect);
+    if (effect.op === 'remove') this.doRemoveInvalidation(effect);
   }
 
   private async doInsertInvalidation(effect: CacheEffect & { op: 'insert' }) {
@@ -142,9 +134,5 @@ export default class InvalidationHandler {
       });
     }
     return { keys, sets, hashes };
-  }
-
-  finish() {
-    return this.promises.flush();
   }
 }
