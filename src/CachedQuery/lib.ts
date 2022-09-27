@@ -113,8 +113,8 @@ export function skipAndLimit<T>(array: T[], skip?: number, limit?: number) {
  * - Which keys are static and which are configurable?
  * - Is any configurable query complex (not an equality comparison)?
  */
-export function classifyQueryKeys<T, P extends unknown[]>(
-  input: QueryFilter<T> | ((...args: P) => QueryFilter<T>),
+export function classifyQueryKeys<P extends unknown[]>(
+  input: QueryFilter | ((...args: P) => QueryFilter),
 ): QueryKeysClassification {
   if (input && typeof input === 'object') {
     return { matcher: sift<unknown>(input), dynamicKeys: [], complexQuery: false };
@@ -123,7 +123,7 @@ export function classifyQueryKeys<T, P extends unknown[]>(
 
   // map params to objects, used to compare by reference without risk of ambiguous comparison
   const params = Array(input.length).fill(null).map(() => ({})) as P;
-  const query = (input as (...args: P) => QueryFilter<T>)(...params);
+  const query = (input as (...args: P) => QueryFilter)(...params);
 
   // recursively search query object for parameters (empty objects)
   let complexQuery = false;

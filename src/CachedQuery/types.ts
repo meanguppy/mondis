@@ -3,10 +3,7 @@ import type sift from 'sift';
 
 export type AnyObject = Record<string, unknown>;
 
-export type QueryFilter<T = unknown> =
-  T extends AnyObject
-    ? { [P in keyof T]?: unknown }
-    : {};
+export type QueryFilter = AnyObject;
 
 export type QueryProjection = AnyObject;
 

@@ -60,6 +60,8 @@ const commands = {
 type MondisConfiguration = {
   redis?: Redis;
   mongoose?: Mongoose;
+  // TODO: allow intercepting cache effects for custom handling (aws lambda)
+  // invalidator?: CacheEffectReceiver;
 };
 
 class Mondis {
@@ -91,7 +93,7 @@ class Mondis {
     return bindPlugin(this.invalidator);
   }
 
-  CachedQuery<T extends HasObjectId, P extends unknown[] = never>(config: CachedQueryConfig<T, P>) {
+  CachedQuery<T extends HasObjectId, P extends unknown[] = never>(config: CachedQueryConfig<P>) {
     const cachedQuery = new CachedQuery<T, P>(this, config);
     this.lookupCachedQuery.set(cachedQuery.hash, cachedQuery as unknown as CachedQuery);
     return cachedQuery;
