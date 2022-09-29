@@ -20,12 +20,19 @@ export type QueryPopulation = {
   transform?: (doc: unknown, id: unknown) => unknown;
 };
 
-export type QuerySortOrder = string | { [key: string]: SortOrder };
+export type QuerySortOrder = string | Record<string, SortOrder>;
 
-export type QueryKeysClassification = {
-  matcher: ReturnType<typeof sift>;
-  dynamicKeys: string[];
-  complexQuery: boolean;
+export type QueryInfo = {
+  query: {
+    matcher: ReturnType<typeof sift>;
+    dynamicKeys: string[];
+    complexQuery: boolean;
+  };
+  select: {
+    inclusive: boolean;
+    keepId: boolean;
+    paths: string[];
+  };
 };
 
 export type HasObjectId = {
@@ -33,12 +40,7 @@ export type HasObjectId = {
   [key: string]: unknown;
 };
 
-/**
- * There are only two ways in which the cache recognizes events:
- * 1. Insert: documents were inserted into the DB.
- * 2. Remove: documents were removed from the DB.
- * Note: database updates are handled as if they were removed and then re-inserted!
- */
 export type CacheEffect =
+  | { op: 'update', modelName: string, modified: string[], docs: { before: AnyObject, after: AnyObject }[] }
   | { op: 'insert', modelName: string, docs: AnyObject[] }
-  | { op: 'remove', modelName: string, ids: Types.ObjectId[] };
+  | { op: 'remove', ids: Types.ObjectId[] };

@@ -55,25 +55,31 @@ export default function bindPlugin(target: CacheEffectReceiver) {
     target.onCacheEffect(evt);
   }
   return function mondisPlugin(schema: Schema) {
-    function preDocSave(this: DocumentWithId) {
+    async function preDocSave(this: DocumentWithId) {
       const { _id, modelName, isNew } = getDocumentInfo(this);
       if (!modelName) return; // embedded document creation, ignore
-      if (!isNew) effect({ op: 'remove', modelName, ids: [_id] });
-      effect({ op: 'insert', modelName, docs: [this.toObject()] });
+      if (isNew) {
+        effect({ op: 'insert', modelName, docs: [this.toObject()] });
+      } else {
+        const modified = this.directModifiedPaths();
+        if (!modified.length) return;
+        const before = await this.$model(modelName).findById(_id).lean();
+        if (!before) return;
+        const after = this.toObject();
+        effect({ op: 'update', modelName, modified, docs: [{ before, after }] });
+      }
     }
 
     function preDocRemove(this: DocumentWithId) {
-      const { _id, modelName } = getDocumentInfo(this);
-      effect({ op: 'remove', modelName, ids: [_id] });
+      const { _id } = getDocumentInfo(this);
+      effect({ op: 'remove', ids: [_id] });
     }
 
     async function preQueryUpdate(this: QueryExtras) {
       const { modelName, update, filter, upsert } = getQueryInfo(this);
       const docs = await findDocs(this.clone(), false);
       if (docs.length) {
-        applyUpdateQuery(docs, update);
-        effect({ op: 'remove', modelName, ids: docs.map((doc) => doc._id) });
-        effect({ op: 'insert', modelName, docs });
+        // TODO: update effect
       } else if (upsert) {
         const upserted = buildUpsertedDocument(filter, update);
         effect({ op: 'insert', modelName, docs: [upserted] });
@@ -81,10 +87,9 @@ export default function bindPlugin(target: CacheEffectReceiver) {
     }
 
     async function preQueryRemove(this: QueryExtras) {
-      const { modelName } = getQueryInfo(this);
       const docs = await findDocs(this.clone(), true);
       if (docs.length) {
-        effect({ op: 'remove', modelName, ids: docs.map((doc) => doc._id) });
+        effect({ op: 'remove', ids: docs.map((doc) => doc._id) });
       }
     }
 

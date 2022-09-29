@@ -6,10 +6,11 @@ import type {
   QueryPopulation,
   QueryProjection,
   QuerySortOrder,
-  QueryKeysClassification,
+  QueryInfo,
 } from './types';
 import {
-  classifyQueryKeys,
+  classifyProjection,
+  classifyQuery,
   collectPopulatedIds,
   jsonHash,
   skipAndLimit,
@@ -69,7 +70,7 @@ class CachedQuery<
 
   private _hash?: string;
 
-  private _classification?: QueryKeysClassification;
+  private _info?: QueryInfo;
 
   constructor(context: Mondis, config: CachedQueryConfig<P>) {
     this.context = context;
@@ -284,12 +285,15 @@ class CachedQuery<
     return this._hash;
   }
 
-  get classification() {
-    if (!this._classification) {
-      const { query } = this.config;
-      this._classification = classifyQueryKeys<P>(query);
+  get info() {
+    if (!this._info) {
+      const { query, select } = this.config;
+      this._info = {
+        query: classifyQuery<P>(query),
+        select: classifyProjection(select),
+      };
     }
-    return this._classification;
+    return this._info;
   }
 }
 

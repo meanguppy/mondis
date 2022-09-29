@@ -6,7 +6,8 @@ import type {
   QueryFilter,
   HasObjectId,
   QueryPopulation,
-  QueryKeysClassification,
+  QueryProjection,
+  QueryInfo,
 } from './types';
 
 function walk(
@@ -55,8 +56,8 @@ export function getValue(target: unknown, path: string) {
 }
 
 export function hasObjectId(target: unknown): target is HasObjectId {
-  return (
-    !!target
+  return !!(
+    target
     && typeof target === 'object'
     && (target as { _id?: unknown })._id instanceof Types.ObjectId
   );
@@ -66,6 +67,7 @@ export function hasObjectId(target: unknown): target is HasObjectId {
  * Extract all ObjectIds of documents based on the
  * mongoose population config. Embedded documents not included
  */
+// TODO: separate top-level ids from populated ids
 export function collectPopulatedIds(
   docs: Partial<HasObjectId>[],
   populations?: QueryPopulation[],
@@ -108,14 +110,36 @@ export function skipAndLimit<T>(array: T[], skip?: number, limit?: number) {
   return array;
 }
 
+// TODO: think about how $slice/$elemMatch/`.$` interacts with this.
+export function classifyProjection(project: QueryProjection): QueryInfo['select'] {
+  const paths: string[] = [];
+  let keepId = true;
+  let inclusive: boolean | undefined;
+  Object.entries(project).forEach(([path, value]) => {
+    if (value !== 0 && value !== 1) throw Error('Query select values must be 0 or 1');
+    const inclusiveOp = (value === 1);
+    if (path === '_id') {
+      keepId = inclusiveOp;
+    } else {
+      if (inclusive === undefined) {
+        inclusive = inclusiveOp;
+      } else if (inclusive !== inclusiveOp) {
+        throw Error('Cannot mix inclusive and exclusive projection');
+      }
+      paths.push(path);
+    }
+  });
+  return { inclusive: !!inclusive, keepId, paths };
+}
+
 /**
  * Classifies all keys in the query:
  * - Which keys are static and which are configurable?
  * - Is any configurable query complex (not an equality comparison)?
  */
-export function classifyQueryKeys<P extends unknown[]>(
+export function classifyQuery<P extends unknown[]>(
   input: QueryFilter | ((...args: P) => QueryFilter),
-): QueryKeysClassification {
+): QueryInfo['query'] {
   if (input && typeof input === 'object') {
     return { matcher: sift<unknown>(input), dynamicKeys: [], complexQuery: false };
   }
@@ -123,7 +147,7 @@ export function classifyQueryKeys<P extends unknown[]>(
 
   // map params to objects, used to compare by reference without risk of ambiguous comparison
   const params = Array(input.length).fill(null).map(() => ({})) as P;
-  const query = (input as (...args: P) => QueryFilter)(...params);
+  const query = input(...params);
 
   // recursively search query object for parameters (empty objects)
   let complexQuery = false;
