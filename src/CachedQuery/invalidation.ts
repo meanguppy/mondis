@@ -27,7 +27,7 @@ function wasProjectionModified(
   modifiedPaths: string[],
 ) {
   if (!modifiedPaths.length) return false;
-  if (!selected.length) return true;
+  if (!selected.length) return !inclusive;
   if (inclusive) {
     // inclusive: return true if some prefix in paths was in modified.
     return modifiedPaths.some(
@@ -55,11 +55,14 @@ function getUpdateInvalidation(
   const { modelName, modified } = effect;
   if (model !== modelName) return null;
   const { before, after } = doc;
-  const { selectInclusive, selectPaths, matcher } = cq.info;
+  const { matcher, selectInclusive, selectPaths, sortPaths } = cq.info;
   const wasMatch = matcher(before);
   const nowMatch = matcher(after);
   if (wasMatch && nowMatch) {
-    if (wasProjectionModified(selectInclusive, selectPaths, modified)) {
+    // NOTE: `sort` can be modeled as an inclusive select for the sake of
+    // deciding whether the sorting of the query was altered.
+    if (wasProjectionModified(true, sortPaths, modified)
+    || wasProjectionModified(selectInclusive, selectPaths, modified)) {
       return constructInvalidation(cq, before, after);
     }
   } else if (!wasMatch && nowMatch) {

@@ -21,13 +21,14 @@ export type QueryPopulation = {
   justOne?: boolean;
   transform?: (doc: unknown, id: unknown) => unknown;
 };
-export type QuerySort = string | Record<string, SortOrder>;
+export type QuerySort = Record<string, SortOrder>;
 export type QueryInfo = {
   matcher: ReturnType<typeof sift>;
   dynamicKeys: string[];
   complexQuery: boolean;
   selectInclusive: boolean;
   selectPaths: string[];
+  sortPaths: string[];
 };
 export type QuerySelectInfo = Pick<QueryInfo, 'selectInclusive' | 'selectPaths'>;
 export type QueryFilterInfo = Pick<QueryInfo, 'matcher' | 'dynamicKeys' | 'complexQuery'>;

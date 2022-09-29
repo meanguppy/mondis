@@ -287,10 +287,11 @@ class CachedQuery<
 
   get info() {
     if (!this._info) {
-      const { query, select } = this.config;
+      const { query, select, sort } = this.config;
       this._info = {
         ...classifyQuery<P>(query),
         ...classifyProjection(select),
+        sortPaths: sort ? Object.keys(sort) : [],
       };
     }
     return this._info;
