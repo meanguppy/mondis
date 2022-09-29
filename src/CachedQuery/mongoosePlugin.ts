@@ -5,7 +5,12 @@ import type {
   Schema,
   Types,
 } from 'mongoose';
-import { applyUpdateQuery, buildUpsertedDocument } from './mongoOperators';
+import {
+  mapBeforeAndAfter,
+  buildUpsertedDocument,
+  collectModifiedKeys,
+  parseQueryUpdate,
+} from './mongoOperators';
 import type {
   CacheEffect,
   HasObjectId,
@@ -38,7 +43,7 @@ function getDocumentInfo(doc: DocumentWithId) {
 function getQueryInfo(query: QueryExtras) {
   const { model: { modelName } } = query;
   const { upsert = false } = query.getOptions();
-  const update = query.getUpdate();
+  const update = parseQueryUpdate(query.getUpdate());
   const filter = query.getFilter();
   return { modelName, upsert, update, filter };
 }
@@ -79,7 +84,9 @@ export default function bindPlugin(target: CacheEffectReceiver) {
       const { modelName, update, filter, upsert } = getQueryInfo(this);
       const docs = await findDocs(this.clone(), false);
       if (docs.length) {
-        // TODO: update effect
+        const modified = collectModifiedKeys(update);
+        const beforeAndAfter = mapBeforeAndAfter(docs, update);
+        await effect({ op: 'update', modelName, modified, docs: beforeAndAfter });
       } else if (upsert) {
         const upserted = buildUpsertedDocument(filter, update);
         await effect({ op: 'insert', modelName, docs: [upserted] });

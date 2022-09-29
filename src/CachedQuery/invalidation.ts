@@ -188,7 +188,6 @@ export default class InvalidationHandler {
     const { docs } = effect;
     const keys = new Set<string>();
     const sets = new Set<string>();
-    // eslint-disable-next-line no-restricted-syntax
     for (const query of lookupCachedQuery.values()) {
       docs.forEach((doc) => {
         const info = cb(query, effect, doc);

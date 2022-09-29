@@ -1,8 +1,9 @@
 import type { Query } from 'mongoose';
+import { produce } from 'immer';
 import type { AnyObject } from './types';
 import { getValue, setValue, unsetValue, updateValue } from './lib';
 
-type MongoOperators = Record<(typeof operators)[number], AnyObject>;
+type MongoOperators = Partial<Record<(typeof operators)[number], AnyObject>>;
 
 type MongooseQueryUpdate = ReturnType<Query<unknown, unknown>['getUpdate']>;
 
@@ -120,34 +121,6 @@ function assertOperatorIsValid(key: string, val: unknown): asserts val is AnyObj
   if (!val || typeof val !== 'object') throw Error(`Invalid operator value for ${key}`);
 }
 
-function parseUpdateQuery(input: MongooseQueryUpdate) {
-  if (!input) return {};
-  if (Array.isArray(input)) throw Error('Updating with aggregation pipeline is not supported');
-  const result: Partial<MongoOperators> = {};
-  function addFieldToSetOp(key: string, val: unknown) {
-    if (!result.$set) result.$set = {};
-    result.$set[key] = val;
-  }
-  Object.entries(input).forEach(([key, val]) => {
-    if (key.charAt(0) !== '$') {
-      addFieldToSetOp(key, val);
-    } else if (isSupportedOperator(key)) {
-      if (!val) return;
-      assertOperatorIsValid(key, val);
-      if (key === '$set') { // handle separately to merge with top-level fields
-        Object.entries(val).forEach(([setKey, setVal]) => {
-          addFieldToSetOp(setKey, setVal);
-        });
-      } else {
-        result[key] = val;
-      }
-    } else {
-      throw Error(`Unsupported update operator ${key}`);
-    }
-  });
-  return result;
-}
-
 function getFilterValue(value: unknown): { add: boolean, value?: unknown } {
   if (value && typeof value === 'object') {
     const hasEqOp = '$eq' in value;
@@ -158,7 +131,7 @@ function getFilterValue(value: unknown): { add: boolean, value?: unknown } {
   return { add: true, value };
 }
 
-function applyUpdates(targets: Array<{}>, update: Partial<MongoOperators>) {
+function applyUpdates(targets: Array<{}>, update: MongoOperators) {
   Object.entries(update).forEach(([op, paths]) => {
     if (!isSupportedOperator(op)) throw Error(`Unsupported update operator ${op}`);
     const handler = handlers[op];
@@ -172,8 +145,41 @@ function applyUpdates(targets: Array<{}>, update: Partial<MongoOperators>) {
   });
 }
 
-export function buildUpsertedDocument(filter: AnyObject, rawUpdate: MongooseQueryUpdate) {
-  const update = parseUpdateQuery(rawUpdate);
+export function parseQueryUpdate(input: MongooseQueryUpdate) {
+  if (!input) return {};
+  if (Array.isArray(input)) throw Error('Updating with aggregation pipeline is not supported');
+  const result: MongoOperators = {};
+  function addEntriesToSetOp(...entries: [string, unknown][]) {
+    if (!result.$set) result.$set = {};
+    for (const [key, val] of entries) { result.$set[key] = val; }
+  }
+  Object.entries(input).forEach(([key, val]) => {
+    if (key.charAt(0) !== '$') {
+      addEntriesToSetOp([key, val]);
+    } else if (isSupportedOperator(key)) {
+      if (!val) return;
+      assertOperatorIsValid(key, val);
+      if (key === '$set') { // handle separately to merge with top-level fields
+        addEntriesToSetOp(...Object.entries(val));
+      } else {
+        result[key] = { ...val };
+      }
+    } else {
+      throw Error(`Unsupported update operator ${key}`);
+    }
+  });
+  return result;
+}
+
+export function collectModifiedKeys(update: MongoOperators) {
+  const result = new Set<string>();
+  Object.values(update).forEach((paths) => {
+    Object.keys(paths).forEach((path) => result.add(path));
+  });
+  return Array.from(result);
+}
+
+export function buildUpsertedDocument(filter: AnyObject, update: MongoOperators) {
   const doc: AnyObject = {};
   // Find keys from `filter` that should be `$set` in the upserted doc
   Object.entries(filter).forEach(([field, rawValue]) => {
@@ -186,6 +192,8 @@ export function buildUpsertedDocument(filter: AnyObject, rawUpdate: MongooseQuer
   return doc;
 }
 
-export function applyUpdateQuery(targets: Array<{}>, rawUpdate: MongooseQueryUpdate) {
-  applyUpdates(targets, parseUpdateQuery(rawUpdate));
+export function mapBeforeAndAfter(targets: Array<{}>, update: MongoOperators) {
+  return produce(targets, (draft) => {
+    applyUpdates(draft, update);
+  }).map((after, idx) => ({ before: targets[idx]!, after }));
 }
