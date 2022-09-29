@@ -30,7 +30,6 @@ export type QueryInfo = {
   };
   select: {
     inclusive: boolean;
-    keepId: boolean;
     paths: string[];
   };
 };

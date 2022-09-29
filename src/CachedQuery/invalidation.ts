@@ -16,10 +16,10 @@ function constructInvalidation(cq: CachedQuery, ...docs: AnyObject[]): KeyInvali
   // we have to invalidate all queries, because we don't know if it has changed.
   if (complexQuery) return { hash: cq.hash, all: true };
   const keys = docs.map((doc) => {
+    // Otherwise, just reconstruct the cache key to only invalidate queries with matching params
     // TODO: use getValue to support dot-notation?
     // check with `classifyQuery`, can `dynamicKeys` be dot-notation?
     const params = dynamicKeys.map((key) => doc[key]);
-    // Otherwise, just reconstruct the cache key to only invalidate queries with matching params
     return cq.getCacheKey(params);
   });
   return { hash: cq.hash, keys };
@@ -114,8 +114,6 @@ export default class InvalidationHandler {
     readonly context: Mondis,
   ) { }
 
-  // TODO: add queueing mechanism for optimized invalidation batching?
-  // TODO: implement 'blocking' hash key to prevent edge-case race conditions.
   onCacheEffect(effect: CacheEffect) {
     switch (effect.op) {
       case 'insert': return this.doInsertInvalidation(effect);
@@ -128,14 +126,12 @@ export default class InvalidationHandler {
   private async doUpdateInvalidation(effect: CacheEffect & { op: 'update' }) {
     const keys = await this.fetchInvalidations(effect, getUpdateInvalidation);
     if (!keys.length) return;
-
     await this.invalidate(keys);
   }
 
   private async doInsertInvalidation(effect: CacheEffect & { op: 'insert' }) {
     const keys = await this.fetchInvalidations(effect, getInsertInvalidation);
     if (!keys.length) return;
-
     await this.invalidate(keys);
   }
 
@@ -147,7 +143,6 @@ export default class InvalidationHandler {
       ...ids.map((id) => `P:${String(id)}`),
     );
     if (!dependentKeys.length) return; // nothing to do
-
     await this.invalidate(dependentKeys);
   }
 

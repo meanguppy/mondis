@@ -52,27 +52,27 @@ type CacheEffectReceiver = {
 
 export default function bindPlugin(target: CacheEffectReceiver) {
   function effect(evt: CacheEffect) {
-    target.onCacheEffect(evt);
+    return target.onCacheEffect(evt);
   }
   return function mondisPlugin(schema: Schema) {
     async function preDocSave(this: DocumentWithId) {
       const { _id, modelName, isNew } = getDocumentInfo(this);
       if (!modelName) return; // embedded document creation, ignore
       if (isNew) {
-        effect({ op: 'insert', modelName, docs: [this.toObject()] });
+        await effect({ op: 'insert', modelName, docs: [this.toObject()] });
       } else {
         const modified = this.directModifiedPaths();
         if (!modified.length) return;
         const before = await this.$model(modelName).findById(_id).lean();
         if (!before) return;
         const after = this.toObject();
-        effect({ op: 'update', modelName, modified, docs: [{ before, after }] });
+        await effect({ op: 'update', modelName, modified, docs: [{ before, after }] });
       }
     }
 
-    function preDocRemove(this: DocumentWithId) {
+    async function preDocRemove(this: DocumentWithId) {
       const { _id } = getDocumentInfo(this);
-      effect({ op: 'remove', ids: [_id] });
+      await effect({ op: 'remove', ids: [_id] });
     }
 
     async function preQueryUpdate(this: QueryExtras) {
@@ -82,24 +82,24 @@ export default function bindPlugin(target: CacheEffectReceiver) {
         // TODO: update effect
       } else if (upsert) {
         const upserted = buildUpsertedDocument(filter, update);
-        effect({ op: 'insert', modelName, docs: [upserted] });
+        await effect({ op: 'insert', modelName, docs: [upserted] });
       }
     }
 
     async function preQueryRemove(this: QueryExtras) {
       const docs = await findDocs(this.clone(), true);
       if (docs.length) {
-        effect({ op: 'remove', ids: docs.map((doc) => doc._id) });
+        await effect({ op: 'remove', ids: docs.map((doc) => doc._id) });
       }
     }
 
-    function preInsertMany(this: Model<unknown>, next: () => void, input: unknown) {
+    async function preInsertMany(this: Model<unknown>, next: () => void, input: unknown) {
       // Unfortunately this middleware executes before the Documents are constructed,
       // meaning default value are missing. Create document only to pass to invalidation
       const { modelName } = this;
       const docs = (Array.isArray(input) ? input : [input])
-        .map((item: unknown) => new this(item).toObject());
-      effect({ op: 'insert', modelName, docs });
+        .map((item) => new this(item).toObject());
+      await effect({ op: 'insert', modelName, docs });
       next();
     }
 

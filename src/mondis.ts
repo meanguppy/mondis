@@ -49,7 +49,7 @@ const commands = {
       local allKey = "A:"..string.sub(qkey, 3, 18)
       redis.call("SREM", allKey, qkey)
       redis.call("DEL", qkey)
-      for key in string.gmatch(depends, " ") do
+      for key in string.gmatch(depends, "%S+") do
         redis.call("SREM", "O:"..key, qkey)
       end
       return 1

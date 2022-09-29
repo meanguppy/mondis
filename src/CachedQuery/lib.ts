@@ -113,13 +113,12 @@ export function skipAndLimit<T>(array: T[], skip?: number, limit?: number) {
 // TODO: think about how $slice/$elemMatch/`.$` interacts with this.
 export function classifyProjection(project: QueryProjection): QueryInfo['select'] {
   const paths: string[] = [];
-  let keepId = true;
   let inclusive: boolean | undefined;
   Object.entries(project).forEach(([path, value]) => {
     if (value !== 0 && value !== 1) throw Error('Query select values must be 0 or 1');
     const inclusiveOp = (value === 1);
     if (path === '_id') {
-      keepId = inclusiveOp;
+      if (value !== 1) throw Error('Excluding _id from projection is forbidden');
     } else {
       if (inclusive === undefined) {
         inclusive = inclusiveOp;
@@ -129,7 +128,7 @@ export function classifyProjection(project: QueryProjection): QueryInfo['select'
       paths.push(path);
     }
   });
-  return { inclusive: !!inclusive, keepId, paths };
+  return { inclusive: !!inclusive, paths };
 }
 
 /**
