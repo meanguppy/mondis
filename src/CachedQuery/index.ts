@@ -5,7 +5,7 @@ import type {
   QueryFilter,
   QueryPopulation,
   QueryProjection,
-  QuerySortOrder,
+  QuerySort,
   QueryInfo,
 } from './types';
 import {
@@ -36,7 +36,7 @@ export type CachedQueryConfig<P extends unknown[]> = {
     : (...params: P) => QueryFilter;
   select?: QueryProjection;
   populate?: QueryPopulation[];
-  sort?: QuerySortOrder | null;
+  sort?: QuerySort | null;
   cacheCount?: number;
   unique?: boolean;
   invalidateOnInsert?: boolean;
@@ -289,8 +289,8 @@ class CachedQuery<
     if (!this._info) {
       const { query, select } = this.config;
       this._info = {
-        query: classifyQuery<P>(query),
-        select: classifyProjection(select),
+        ...classifyQuery<P>(query),
+        ...classifyProjection(select),
       };
     }
     return this._info;

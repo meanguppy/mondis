@@ -1,17 +1,13 @@
 import type Mondis from '../mondis';
 import type CachedQuery from './index';
-import type {
-  AnyObject,
-  CacheEffect,
-  QueryInfo,
-} from './types';
+import type { AnyObject, CacheEffect } from './types';
 
 type KeyInvalidation =
   | { hash: string, all: true }
   | { hash: string, keys: string[] };
 
 function constructInvalidation(cq: CachedQuery, ...docs: AnyObject[]): KeyInvalidation {
-  const { complexQuery, dynamicKeys } = cq.info.query;
+  const { complexQuery, dynamicKeys } = cq.info;
   // If any configurable part of the query is not just an equality check,
   // we have to invalidate all queries, because we don't know if it has changed.
   if (complexQuery) return { hash: cq.hash, all: true };
@@ -25,14 +21,17 @@ function constructInvalidation(cq: CachedQuery, ...docs: AnyObject[]): KeyInvali
   return { hash: cq.hash, keys };
 }
 
-function wasProjectionModified(info: QueryInfo['select'], modifiedPaths: string[]) {
+function wasProjectionModified(
+  inclusive: boolean,
+  selected: string[],
+  modifiedPaths: string[],
+) {
   if (!modifiedPaths.length) return false;
-  const { inclusive, paths } = info;
-  if (!paths.length) return true;
+  if (!selected.length) return true;
   if (inclusive) {
     // inclusive: return true if some prefix in paths was in modified.
     return modifiedPaths.some(
-      (modified) => paths.find(
+      (modified) => selected.find(
         (path) => modified === path
           || modified.startsWith(`${path}.`)
           || path.startsWith(`${modified}.`),
@@ -41,7 +40,7 @@ function wasProjectionModified(info: QueryInfo['select'], modifiedPaths: string[
   }
   // exclusive: return true if some prefix in modified was not found in paths.
   return !modifiedPaths.every(
-    (modified) => paths.find(
+    (modified) => selected.find(
       (path) => modified === path || modified.startsWith(`${path}.`),
     ),
   );
@@ -56,11 +55,11 @@ function getUpdateInvalidation(
   const { modelName, modified } = effect;
   if (model !== modelName) return null;
   const { before, after } = doc;
-  const { select, query: { matcher } } = cq.info;
+  const { selectInclusive, selectPaths, matcher } = cq.info;
   const wasMatch = matcher(before);
   const nowMatch = matcher(after);
   if (wasMatch && nowMatch) {
-    if (wasProjectionModified(select, modified)) {
+    if (wasProjectionModified(selectInclusive, selectPaths, modified)) {
       return constructInvalidation(cq, before, after);
     }
   } else if (!wasMatch && nowMatch) {
@@ -84,7 +83,7 @@ function getInsertInvalidation(
   // If this query uniquely identifies a single document,
   // then a new document will have no effect on cached queries.
   if (unique || !invalidateOnInsert || model !== modelName) return null;
-  const { matcher } = cq.info.query;
+  const { matcher } = cq.info;
   // If any field in the document contradicts the query, no need to invalidate
   const docCouldMatchQuery = matcher(doc);
   if (!docCouldMatchQuery) return null;
