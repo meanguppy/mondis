@@ -8,12 +8,18 @@ import type {
   QueryFilterInfo,
   CacheEffect,
   QueryPopulation,
+  HasObjectId,
 } from '../types';
 import {
   LazyArrayMap,
 } from '../utils';
 
-type KeyInvalidation =
+export type InvalidationMaps = {
+  primary: Map<string, InvalidationInfo[]>;
+  populated: Map<string, PopulatedInvalidationInfo[]>;
+};
+
+export type KeyInvalidation =
   | { hash: string, all: true }
   | { hash: string, keys: string[] };
 
@@ -105,15 +111,10 @@ function classifyQuery<P extends unknown[]>(
 
 export class InvalidationInfo {
   readonly matcher: ReturnType<typeof sift>;
-
   readonly dynamicKeys: string[];
-
   readonly complexQuery: boolean;
-
   readonly selectInclusive: boolean;
-
   readonly selectPaths: string[];
-
   readonly sortPaths: string[];
 
   constructor(readonly cachedQuery: CachedQuery) {
@@ -129,7 +130,7 @@ export class InvalidationInfo {
   }
 
   getUpdateInvalidation(
-    doc: { before: AnyObject, after: AnyObject },
+    doc: { before: HasObjectId, after: HasObjectId },
     effect: CacheEffect & { op: 'update' },
   ): KeyInvalidation | null {
     const { matcher, selectInclusive, selectPaths, sortPaths } = this;
@@ -182,7 +183,6 @@ export class InvalidationInfo {
 
 export class PopulatedInvalidationInfo {
   readonly selectInclusive: boolean;
-
   readonly selectPaths: string[];
 
   constructor(readonly cachedQuery: CachedQuery, populate: QueryPopulation) {
@@ -194,25 +194,34 @@ export class PopulatedInvalidationInfo {
 
   // TODO: might have to use HasObjectId instead of AnyObject
   getUpdateInvalidation(
-    doc: { before: AnyObject, after: AnyObject },
+    doc: { before: HasObjectId, after: HasObjectId },
     effect: CacheEffect & { op: 'update' },
   ) {
     const { selectInclusive, selectPaths } = this;
     const { modified } = effect;
     const { after } = doc;
     if (wasProjectionModified(selectInclusive, selectPaths, modified)) {
-      return { set: `P:${doc._id}`, hash: this.cachedQuery.hash };
+      return { set: `P:${String(after._id)}`, hash: this.cachedQuery.hash };
     }
     return null;
   }
 }
 
-// class InvalidationProvider {
-//   private primaryInfo = new LazyArrayMap<InvalidationInfo>();
-//
-//   private populateInfo = new LazyArrayMap<PopulatedInvalidationInfo>();
-//
-//   constructor(cachedQueries: CachedQuery[]) {
-//     cachedQueries.forEach((cq) => this.addCachedQuery(cq));
-//   }
-// }
+export function buildInvalidationMaps(cachedQueries: CachedQuery[]): InvalidationMaps {
+  const infoPrimary = new LazyArrayMap<InvalidationInfo>();
+  const infoPopulate = new LazyArrayMap<PopulatedInvalidationInfo>();
+  cachedQueries.forEach((cachedQuery) => {
+    const { model, populate } = cachedQuery.config;
+    infoPrimary.add(model, new InvalidationInfo(cachedQuery));
+    function collectPopulations(input: QueryPopulation) {
+      const { model: modelPopulate, populate: innerPopulate } = input;
+      infoPopulate.add(
+        modelPopulate,
+        new PopulatedInvalidationInfo(cachedQuery, input),
+      );
+      innerPopulate?.forEach((pop) => collectPopulations(pop));
+    }
+    populate?.forEach((pop) => collectPopulations(pop));
+  });
+  return { primary: infoPrimary.map, populated: infoPopulate.map };
+}

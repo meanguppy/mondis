@@ -28,6 +28,6 @@ export type QuerySelectInfo = Pick<QueryInfo, 'selectInclusive' | 'selectPaths'>
 export type QueryFilterInfo = Pick<QueryInfo, 'matcher' | 'dynamicKeys' | 'complexQuery'>;
 
 export type CacheEffect =
-  | { op: 'update', modelName: string, modified: string[], docs: { before: AnyObject, after: AnyObject }[] }
+  | { op: 'update', modelName: string, modified: string[], docs: { before: HasObjectId, after: HasObjectId }[] }
   | { op: 'insert', modelName: string, docs: AnyObject[] }
   | { op: 'remove', ids: Types.ObjectId[] };

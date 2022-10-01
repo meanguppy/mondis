@@ -26,7 +26,7 @@ type MondisConfiguration<Q> = {
   queries?: Q;
 };
 
-type CachedQueryMap<Q> = {
+type CachedQueryMap<Q> = Record<string, CachedQuery> & {
   [K in keyof Q]: Q[K] extends CachedQueryConfig<infer T, infer P>
     ? CachedQuery<T, P>
     : never;

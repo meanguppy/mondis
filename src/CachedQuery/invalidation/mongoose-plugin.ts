@@ -16,7 +16,7 @@ import type {
   HasObjectId,
 } from '../types';
 
-type DocumentWithId = HydratedDocument<unknown>;
+type DocumentWithId = HydratedDocument<{ _id: Types.ObjectId }>;
 
 type QueryExtras<ResType = unknown> =
   & Query<ResType, HasObjectId>
