@@ -1,9 +1,42 @@
 import mongoose, { Schema, Types } from 'mongoose';
 import Redis from 'ioredis';
 import Mondis from './mondis';
+import { parseConfig as define } from './CachedQuery/config';
+
+const queries = {
+  NamesAndKinds: define<HelloDocument>({
+    model: 'Hello',
+    query: {},
+    select: { name: 1, kind: 1 },
+  }),
+  KindSortedByPrice: define<HelloDocument, [string]>({
+    model: 'Hello',
+    query: (kind) => ({ kind }),
+    select: { name: 1, kind: 1 },
+    sort: { price: 1 },
+  }),
+  KindsSortedByPrice: define<HelloDocument, [string[]]>({
+    model: 'Hello',
+    query: (kinds) => ({ kind: { $in: kinds } }),
+    select: { name: 1, kind: 1 },
+    sort: { price: 1 },
+  }),
+  AllCars: define<HelloDocument>({
+    model: 'Hello',
+    query: { kind: 'car' },
+    select: { name: 1, kind: 1 },
+  }),
+};
 
 const redis = new Redis(6379, '127.0.0.1');
-const mondis = new Mondis({ redis, mongoose });
+const mondis = new Mondis({ redis, mongoose, queries });
+const {
+  // NamesAndKinds,
+  KindSortedByPrice,
+  // KindsSortedByPrice,
+  // AllCars,
+} = mondis.queries;
+// TODO: should the plugin be attached automatically upon init?
 mongoose.plugin(mondis.plugin());
 
 type HelloDocument = {
@@ -11,11 +44,13 @@ type HelloDocument = {
   name: string;
   kind: string;
   price: number;
+  things: number[];
 };
 const HelloSchema = new Schema<HelloDocument>({
   name: String,
   kind: String,
   price: Number,
+  things: [Number],
 });
 
 type WorldDocument = {
@@ -31,7 +66,6 @@ const World = mongoose.model('World', WorldSchema);
 
 async function seed() {
   await Promise.all([
-    mongoose.connect('mongodb://localhost/cq-dev'),
     Hello.deleteMany({}),
     World.deleteMany({}),
   ]);
@@ -51,29 +85,12 @@ async function seed() {
   ]);
 }
 
-const VehicleByKind = mondis.CachedQuery<HelloDocument, [string]>({
-  model: 'Hello',
-  query: (kind) => ({ kind }),
-});
-
-const CheapVehicles = mondis.CachedQuery<HelloDocument>({
-  model: 'Hello',
-  query: {
-    price: { $lt: 6000 },
-  },
-});
-
 async function main() {
+  await mongoose.connect('mongodb://localhost/cq-dev');
   await seed();
-  console.log(
-    await CheapVehicles.exec(),
-    await VehicleByKind.exec(['car']),
-  );
-  await Hello.create({
-    name: 'rich',
-    kind: 'car',
-    price: 8000,
-  });
+  const res1 = await KindSortedByPrice.exec(['car']);
+  await Hello.updateOne({ kind: 'car' }, { $inc: { price: -150000 } });
+  const res2 = await KindSortedByPrice.exec(['car']);
 }
 
 main().then(() => setTimeout(() => {

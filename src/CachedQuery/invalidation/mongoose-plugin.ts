@@ -10,11 +10,11 @@ import {
   buildUpsertedDocument,
   collectModifiedKeys,
   parseQueryUpdate,
-} from './mongoOperators';
+} from './mongo-operators';
 import type {
   CacheEffect,
   HasObjectId,
-} from './types';
+} from '../types';
 
 type DocumentWithId = HydratedDocument<unknown>;
 
@@ -59,6 +59,7 @@ export default function bindPlugin(target: CacheEffectReceiver) {
   function effect(evt: CacheEffect) {
     return target.onCacheEffect(evt);
   }
+  // TODO: start promise in pre middleware, but await it in post.
   return function mondisPlugin(schema: Schema) {
     async function preDocSave(this: DocumentWithId) {
       const { _id, modelName, isNew } = getDocumentInfo(this);

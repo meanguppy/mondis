@@ -3,18 +3,15 @@ import type Mondis from '../mondis';
 import type {
   HasObjectId,
   QueryFilter,
-  QueryPopulation,
-  QueryProjection,
-  QuerySort,
-  QueryInfo,
 } from './types';
+import type {
+  CachedQueryConfig,
+} from './config';
 import {
-  classifyProjection,
-  classifyQuery,
   collectPopulatedIds,
   jsonHash,
   skipAndLimit,
-} from './lib';
+} from './utils';
 
 type QueryExecOpts<T> = {
   skip?: number;
@@ -28,21 +25,6 @@ type InputExecOpts<T, P extends unknown[]> =
   | ([P] extends [never]
     ? (void | QueryExecOpts<T>)
     : (P | QueryExecOpts<T> & { params: P }));
-
-export type CachedQueryConfig<P extends unknown[]> = {
-  model: string;
-  query: [P] extends [never]
-    ? QueryFilter
-    : (...params: P) => QueryFilter;
-  select?: QueryProjection;
-  populate?: QueryPopulation[];
-  sort?: QuerySort | null;
-  cacheCount?: number;
-  unique?: boolean;
-  invalidateOnInsert?: boolean;
-  expiry?: number;
-  rehydrate?: boolean;
-};
 
 class ParsedOptions<T> {
   constructor(
@@ -64,41 +46,12 @@ class CachedQuery<
   T extends HasObjectId = HasObjectId,
   P extends unknown[] = unknown[],
 > {
-  context: Mondis;
-
-  config: Required<CachedQueryConfig<P>>;
-
   private _hash?: string;
 
-  private _info?: QueryInfo;
-
-  constructor(context: Mondis, config: CachedQueryConfig<P>) {
-    this.context = context;
-    const {
-      model,
-      query,
-      select = {},
-      populate = [],
-      sort = null,
-      cacheCount = Infinity,
-      expiry = 12 * 60 * 60, // 12 hours
-      unique = false,
-      invalidateOnInsert = true,
-      rehydrate = true,
-    } = config;
-    this.config = {
-      model,
-      query,
-      select,
-      populate,
-      sort,
-      cacheCount,
-      expiry,
-      unique,
-      invalidateOnInsert,
-      rehydrate,
-    };
-  }
+  constructor(
+    readonly context: Mondis,
+    readonly config: CachedQueryConfig<T, P>,
+  ) { }
 
   getCacheKey(params: unknown[] = []) {
     const { hash, config: { query } } = this;
@@ -145,7 +98,9 @@ class CachedQuery<
     const { hash, config: { populate, expiry } } = this;
     try {
       const bson = serialize(result);
-      const depends = collectPopulatedIds(result, populate);
+      const docIds = result.map((doc) => String(doc._id));
+      const populatedIds = collectPopulatedIds(result, populate);
+      const depends = [...docIds, ...populatedIds];
       const allKey = `A:${hash}`;
       // Cache result, and create keys used for tracking invalidations
       const multi = redis.multi();
@@ -155,9 +110,13 @@ class CachedQuery<
       multi.sadd(allKey, cacheKey);
       multi.expiregt(cacheKey, expiry);
       multi.expiregt(allKey, expiry);
-      depends.forEach((id) => {
+      docIds.forEach((id) => {
         multi.sadd(`O:${id}`, cacheKey);
         multi.expiregt(`O:${id}`, expiry);
+      });
+      populatedIds.forEach((id) => {
+        multi.sadd(`P:${id}`, cacheKey);
+        multi.expiregt(`P:${id}`, expiry);
       });
       await multi.exec();
     } catch (err) {
@@ -283,18 +242,6 @@ class CachedQuery<
       }
     }
     return this._hash;
-  }
-
-  get info() {
-    if (!this._info) {
-      const { query, select, sort } = this.config;
-      this._info = {
-        ...classifyQuery<P>(query),
-        ...classifyProjection(select),
-        sortPaths: sort ? Object.keys(sort) : [],
-      };
-    }
-    return this._info;
   }
 }
 

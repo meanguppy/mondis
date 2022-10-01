@@ -1,7 +1,7 @@
 import type { Query } from 'mongoose';
 import { produce } from 'immer';
-import type { AnyObject } from './types';
-import { getValue, setValue, unsetValue, updateValue } from './lib';
+import type { AnyObject } from '../types';
+import { getValue, setValue, unsetValue, updateValue } from '../utils';
 
 type MongoOperators = Partial<Record<(typeof operators)[number], AnyObject>>;
 

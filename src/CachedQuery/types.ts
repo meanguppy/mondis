@@ -1,4 +1,4 @@
-import type { QueryOptions, SortOrder, Types } from 'mongoose';
+import type { SortOrder, Types } from 'mongoose';
 import type sift from 'sift';
 
 export type AnyObject = Record<string, unknown>;
@@ -11,15 +11,9 @@ export type QueryFilter = AnyObject;
 export type QueryProjection = AnyObject;
 export type QueryPopulation = {
   path: string;
+  model: string;
   select?: QueryProjection;
-  match?: unknown;
-  model?: string;
-  options?: QueryOptions;
-  perDocumentLimit?: number;
-  strictPopulate?: boolean;
   populate?: QueryPopulation[];
-  justOne?: boolean;
-  transform?: (doc: unknown, id: unknown) => unknown;
 };
 export type QuerySort = Record<string, SortOrder>;
 export type QueryInfo = {

@@ -1,10 +1,10 @@
 import type Redis from 'ioredis';
 import type { Result, Callback } from 'ioredis';
 import type { Mongoose } from 'mongoose';
-import type { HasObjectId } from './CachedQuery/types';
-import CachedQuery, { CachedQueryConfig } from './CachedQuery';
-import InvalidationHandler from './CachedQuery/invalidation';
-import bindPlugin from './CachedQuery/mongoosePlugin';
+import type { CachedQueryConfig } from './CachedQuery/config';
+import CachedQuery from './CachedQuery';
+import InvalidationHandler from './CachedQuery/invalidation/handler';
+import bindPlugin from './CachedQuery/invalidation/mongoose-plugin';
 
 declare module 'ioredis' {
   interface RedisCommander<Context> {
@@ -19,6 +19,18 @@ declare module 'ioredis' {
     ): Result<string, Context>;
   }
 }
+
+type MondisConfiguration<Q> = {
+  redis?: Redis;
+  mongoose?: Mongoose;
+  queries?: Q;
+};
+
+type CachedQueryMap<Q> = {
+  [K in keyof Q]: Q[K] extends CachedQueryConfig<infer T, infer P>
+    ? CachedQuery<T, P>
+    : never;
+};
 
 const commands = {
   /**
@@ -57,28 +69,33 @@ const commands = {
   },
 };
 
-type MondisConfiguration = {
-  redis?: Redis;
-  mongoose?: Mongoose;
-  // TODO: allow intercepting cache effects for custom handling (aws lambda)
-  // invalidator?: CacheEffectReceiver;
-};
+function buildCachedQueryMap<Q>(mondis: Mondis, input: unknown) {
+  if (!input) return {} as CachedQueryMap<Q>;
+  if (typeof input !== 'object') throw Error('Invalid `queries` object');
+  const constructed = Object.entries(input).map(([name, val]) => {
+    if (!val) throw Error('Invalid CachedQueryConfig'); // TODO: use instanceof
+    return [name, new CachedQuery(mondis, val as CachedQueryConfig)];
+  });
+  return Object.fromEntries(constructed) as CachedQueryMap<Q>;
+}
 
-class Mondis {
+class Mondis<Q = {}> {
   private _redis?: Redis;
 
   private _mongoose?: Mongoose;
 
   private invalidator: InvalidationHandler;
 
-  readonly lookupCachedQuery = new Map<string, CachedQuery>();
+  readonly queries: CachedQueryMap<Q>;
 
-  constructor(config: MondisConfiguration = {}) {
+  constructor(config: MondisConfiguration<Q> = {}) {
     this.init(config);
+    this.queries = buildCachedQueryMap(this, config.queries);
     this.invalidator = new InvalidationHandler(this);
   }
 
-  init(clients: Pick<MondisConfiguration, 'redis' | 'mongoose'>) {
+  init(clients: { redis?: Redis, mongoose?: Mongoose }) {
+    // TODO: add warning if mongoose already contains schemas (before plugin could be attached)
     const { redis, mongoose } = clients;
     if (redis) {
       Object.entries(commands).forEach(([name, conf]) => {
@@ -91,12 +108,6 @@ class Mondis {
 
   plugin() {
     return bindPlugin(this.invalidator);
-  }
-
-  CachedQuery<T extends HasObjectId, P extends unknown[] = never>(config: CachedQueryConfig<P>) {
-    const cachedQuery = new CachedQuery<T, P>(this, config);
-    this.lookupCachedQuery.set(cachedQuery.hash, cachedQuery as unknown as CachedQuery);
-    return cachedQuery;
   }
 
   get redis() {
