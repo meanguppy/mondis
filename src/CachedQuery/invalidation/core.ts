@@ -6,7 +6,6 @@ import type {
   QueryProjection,
   QuerySelectInfo,
   QueryFilterInfo,
-  CacheEffect,
   QueryPopulation,
   HasObjectId,
 } from '../types';
@@ -19,9 +18,15 @@ export type InvalidationMaps = {
   populated: Map<string, PopulatedInvalidationInfo[]>;
 };
 
-export type KeyInvalidation =
-  | { hash: string, all: true }
-  | { hash: string, keys: string[] };
+export type CollectedInvalidations = {
+  keys?: string[];
+  sets?: { set: string, filter?: string | undefined }[];
+};
+
+type InvalidationTarget =
+  | null
+  | { keys: string[] }
+  | { set: string, filter?: string };
 
 function wasProjectionModified(
   inclusive: boolean,
@@ -109,7 +114,7 @@ function classifyQuery<P extends unknown[]>(
   return { matcher: sift(staticKeys), dynamicKeys, complexQuery };
 }
 
-export class InvalidationInfo {
+class InvalidationInfo {
   readonly matcher: ReturnType<typeof sift>;
   readonly dynamicKeys: string[];
   readonly complexQuery: boolean;
@@ -131,10 +136,9 @@ export class InvalidationInfo {
 
   getUpdateInvalidation(
     doc: { before: HasObjectId, after: HasObjectId },
-    effect: CacheEffect & { op: 'update' },
-  ): KeyInvalidation | null {
+    modified: string[],
+  ): InvalidationTarget {
     const { matcher, selectInclusive, selectPaths, sortPaths } = this;
-    const { modified } = effect;
     const { before, after } = doc;
     const wasMatch = matcher(before);
     const nowMatch = matcher(after);
@@ -153,7 +157,7 @@ export class InvalidationInfo {
     return null;
   }
 
-  getInsertInvalidation(doc: AnyObject): KeyInvalidation | null {
+  getInsertInvalidation(doc: AnyObject): InvalidationTarget {
     const { cachedQuery, matcher } = this;
     const { unique, invalidateOnInsert } = cachedQuery.config;
     // If this query uniquely identifies a single document,
@@ -165,23 +169,24 @@ export class InvalidationInfo {
     return this.constructInvalidation(doc);
   }
 
-  constructInvalidation(...docs: AnyObject[]): KeyInvalidation {
+  constructInvalidation(...docs: AnyObject[]): InvalidationTarget {
     const { cachedQuery, complexQuery, dynamicKeys } = this;
     // If any configurable part of the query is not just an equality check,
     // we have to invalidate all queries, because we don't know if it has changed.
-    if (complexQuery) return { hash: cachedQuery.hash, all: true };
-    const keys = docs.map((doc) => {
+    if (complexQuery) return { set: `A:${cachedQuery.hash}` };
+    const keySet = new Set<string>();
+    docs.forEach((doc) => {
       // Otherwise, just reconstruct the cache key to only invalidate queries with matching params
       // TODO: use getValue to support dot-notation?
       // check with `classifyQuery`, can `dynamicKeys` be dot-notation?
       const params = dynamicKeys.map((key) => doc[key]);
-      return cachedQuery.getCacheKey(params);
+      keySet.add(cachedQuery.getCacheKey(params));
     });
-    return { hash: cachedQuery.hash, keys };
+    return { keys: Array.from(keySet) };
   }
 }
 
-export class PopulatedInvalidationInfo {
+class PopulatedInvalidationInfo {
   readonly selectInclusive: boolean;
   readonly selectPaths: string[];
 
@@ -192,16 +197,14 @@ export class PopulatedInvalidationInfo {
     this.selectPaths = selectPaths;
   }
 
-  // TODO: might have to use HasObjectId instead of AnyObject
   getUpdateInvalidation(
     doc: { before: HasObjectId, after: HasObjectId },
-    effect: CacheEffect & { op: 'update' },
-  ) {
-    const { selectInclusive, selectPaths } = this;
-    const { modified } = effect;
+    modified: string[],
+  ): InvalidationTarget {
+    const { cachedQuery, selectInclusive, selectPaths } = this;
     const { after } = doc;
     if (wasProjectionModified(selectInclusive, selectPaths, modified)) {
-      return { set: `P:${String(after._id)}`, hash: this.cachedQuery.hash };
+      return { set: `P:${String(after._id)}`, filter: cachedQuery.hash };
     }
     return null;
   }
@@ -224,4 +227,33 @@ export function buildInvalidationMaps(cachedQueries: CachedQuery[]): Invalidatio
     populate?.forEach((pop) => collectPopulations(pop));
   });
   return { primary: infoPrimary.map, populated: infoPopulate.map };
+}
+
+export function collectInvalidations(
+  callback: (add: (target: InvalidationTarget) => void) => void,
+): CollectedInvalidations {
+  const keys = new Set<string>();
+  const sets = new Set<string>();
+  function addHandler(target: InvalidationTarget) {
+    if (target === null) return;
+    if ('keys' in target) {
+      target.keys.forEach((key) => keys.add(key));
+    }
+    if ('set' in target) {
+      const { set, filter } = target;
+      if (filter) {
+        sets.add(`${set},${filter}`);
+      } else {
+        sets.add(set);
+      }
+    }
+  }
+  callback(addHandler);
+  return {
+    keys: Array.from(keys),
+    sets: Array.from(sets, (str) => {
+      const split = str.split(',');
+      return { set: split[0]!, filter: split[1] };
+    }),
+  };
 }

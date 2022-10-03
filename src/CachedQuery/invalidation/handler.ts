@@ -1,14 +1,15 @@
 import type Mondis from '../../mondis';
+import type { CacheEffect } from '../types';
 import {
+  collectInvalidations,
   buildInvalidationMaps,
   type InvalidationMaps,
+  type CollectedInvalidations,
 } from './core';
-import type { CacheEffect } from '../types';
-import { union } from '../utils';
 
 export default class InvalidationHandler {
-  private _invalidationMaps?: InvalidationMaps;
-  readonly keysInvalidated = new Set<string>();
+  private invalidationMaps?: InvalidationMaps;
+  readonly keysInvalidated: string[] = [];
 
   constructor(
     readonly context: Mondis,
@@ -24,75 +25,75 @@ export default class InvalidationHandler {
   }
 
   private async doUpdateInvalidation(effect: CacheEffect & { op: 'update' }) {
-    // TODO
+    const { modelName, modified, docs } = effect;
+    const { primary, populated } = this.getInvalidationInfos(modelName);
+    const targets = collectInvalidations((add) => {
+      docs.forEach((doc) => {
+        primary.forEach((info) => {
+          add(info.getUpdateInvalidation(doc, modified));
+        });
+        populated.forEach((info) => {
+          add(info.getUpdateInvalidation(doc, modified));
+        });
+      });
+    });
+    await this.doInvalidations(targets);
   }
 
   private async doInsertInvalidation(effect: CacheEffect & { op: 'insert' }) {
-    // TODO
+    const { modelName, docs } = effect;
+    const { primary } = this.getInvalidationInfos(modelName);
+    const targets = collectInvalidations((add) => {
+      docs.forEach((doc) => {
+        primary.forEach((info) => {
+          add(info.getInsertInvalidation(doc));
+        });
+      });
+    });
+    await this.doInvalidations(targets);
   }
 
   private async doRemoveInvalidation(effect: CacheEffect & { op: 'remove' }) {
-    const { redis } = this.context;
     const { ids } = effect;
-    const dependentKeys = await redis.sunion(
-      ...ids.map((id) => `O:${String(id)}`),
-      ...ids.map((id) => `P:${String(id)}`),
-    );
-    if (!dependentKeys.length) return; // nothing to do
-    await this.invalidate(dependentKeys);
-  }
-
-  async invalidate(keys: string[]) {
-    if (!keys.length) return;
-
-    const { redis } = this.context;
-    const multi = redis.multi();
-    keys.forEach((key) => multi.delquery(key));
-    const results = await multi.exec();
-    if (!results || !results.length) return;
-
-    const { keysInvalidated } = this;
-    results.forEach(([err, didExist], index) => {
-      if (err !== null) return;
-      const key = keys[index];
-      if (key && didExist) keysInvalidated.add(key);
+    await this.doInvalidations({
+      sets: ids.flatMap((id) => [
+        { set: `O:${String(id)}` },
+        { set: `P:${String(id)}` },
+      ]),
     });
   }
 
-  // private async fetchInvalidations<D, E extends CacheEffect & { docs: D[] }>(
-  //   effect: E,
-  //   cb: (cq: CachedQuery, effect: E, doc: D) => KeyInvalidation | null,
-  // ): Promise<string[]> {
-  //   const { lookupCachedQuery, redis } = this.context;
-  //   const { docs } = effect;
-  //   const keys = new Set<string>();
-  //   const sets = new Set<string>();
-  //   for (const query of lookupCachedQuery.values()) {
-  //     docs.forEach((doc) => {
-  //       const info = cb(query, doc, effect);
-  //       // const info = getUpdateInvalidation(query, modelName, modified, before, after);
-  //       if (!info) return;
-  //       if ('all' in info) sets.add(`A:${info.hash}`);
-  //       if ('keys' in info) info.keys.forEach((key) => keys.add(key));
-  //     });
-  //   }
-  //   const fetchedKeys = (sets.size) ? await redis.sunion(...sets) : [];
-  //   return union(keys, fetchedKeys);
-  // }
+  private async doInvalidations(collected: CollectedInvalidations) {
+    const { keys, sets } = collected;
+    if ((!keys || !keys.length) && (!sets || !sets.length)) return;
 
-  private collectInvalidations(model: string) {
-    const { invalidationMaps } = this;
-    const keys = new Set<string>();
-    const sets = new Set<string>();
-    invalidationMaps.primary.get(model)?.forEach(() => {
-    });
-  }
-
-  get invalidationMaps() {
-    if (!this._invalidationMaps) {
-      const queries = Object.values(this.context.queries);
-      this._invalidationMaps = buildInvalidationMaps(queries);
+    const pipeline = this.context.redis.pipeline();
+    if (keys && keys.length) {
+      keys.forEach((key) => pipeline.delQuery(key));
     }
-    return this._invalidationMaps;
+    if (sets && sets.length) {
+      sets.forEach(({ set, filter }) => pipeline.delQueriesIn(set, filter));
+    }
+    const result = await pipeline.exec();
+    const { keysInvalidated } = this;
+    result?.forEach(([err, res], idx) => {
+      if (err) return;
+      if (res === 1) {
+        keysInvalidated.push(keys![idx]!);
+      } else if (Array.isArray(res) && res.length) {
+        keysInvalidated.push(...(res as string[]));
+      }
+    });
+  }
+
+  private getInvalidationInfos(model: string) {
+    if (!this.invalidationMaps) {
+      const queries = Object.values(this.context.queries);
+      this.invalidationMaps = buildInvalidationMaps(queries);
+    }
+    return {
+      primary: this.invalidationMaps.primary.get(model) ?? [],
+      populated: this.invalidationMaps.populated.get(model) ?? [],
+    };
   }
 }

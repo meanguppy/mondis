@@ -100,13 +100,13 @@ class CachedQuery<
       const bson = serialize(result);
       const docIds = result.map((doc) => String(doc._id));
       const populatedIds = collectPopulatedIds(result, populate);
-      const depends = [...docIds, ...populatedIds];
       const allKey = `A:${hash}`;
       // Cache result, and create keys used for tracking invalidations
       const multi = redis.multi();
       multi.del(cacheKey);
-      multi.hset(cacheKey, 'value', bson);
-      multi.hset(cacheKey, 'depends', depends.join(' '));
+      multi.hset(cacheKey, 'V', bson);
+      multi.hset(cacheKey, 'O', docIds.join(' '));
+      multi.hset(cacheKey, 'P', populatedIds.join(' '));
       multi.sadd(allKey, cacheKey);
       multi.expiregt(cacheKey, expiry);
       multi.expiregt(allKey, expiry);
@@ -138,7 +138,7 @@ class CachedQuery<
     const { key: cacheKey } = opts;
     if (!skipCache) {
       try {
-        const bson = await redis.hgetBuffer(cacheKey, 'value');
+        const bson = await redis.hgetBuffer(cacheKey, 'V');
         if (bson !== null) {
           result = Object.values(deserialize(bson)) as T[];
         }
