@@ -1,5 +1,5 @@
 import type Redis from 'ioredis';
-import type { Result, Callback } from 'ioredis';
+import type { Result } from 'ioredis';
 import type { Mongoose } from 'mongoose';
 import type { CachedQueryConfig } from './CachedQuery/config';
 import CachedQuery from './CachedQuery';

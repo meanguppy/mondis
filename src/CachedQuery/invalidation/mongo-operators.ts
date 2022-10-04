@@ -192,7 +192,7 @@ export function buildUpsertedDocument(filter: AnyObject, update: MongoOperators)
   return doc;
 }
 
-export function mapBeforeAndAfter<T>(targets: Array<T>, update: MongoOperators) {
+export function mapBeforeAndAfter<T extends {}>(targets: T[], update: MongoOperators) {
   return produce(targets, (draft) => {
     applyUpdates(draft, update);
   }).map((after, idx) => ({ before: targets[idx]!, after }));
