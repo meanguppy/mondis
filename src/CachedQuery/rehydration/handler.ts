@@ -1,3 +1,4 @@
+import { EJSON } from 'bson';
 import type Mondis from 'src/mondis';
 
 const MATCH_CACHE_KEY = /^Q:(.+?)(\[.*\])$/;
@@ -7,7 +8,7 @@ function parseCacheKey(key: string) {
   if (!hash || !params) throw Error('Failed to parse cache key');
   return {
     hash,
-    params: JSON.parse(params) as unknown[],
+    params: EJSON.parse(params) as unknown[],
   };
 }
 

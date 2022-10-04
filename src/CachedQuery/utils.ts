@@ -1,3 +1,4 @@
+import { EJSON } from 'bson';
 import { Types } from 'mongoose';
 import crypto from 'crypto';
 import type {
@@ -63,7 +64,6 @@ export function hasObjectId(target: unknown): target is HasObjectId {
  * Extract all ObjectIds of documents based on the
  * mongoose population config. Embedded documents not included
  */
-// TODO: separate top-level ids from populated ids
 export function collectPopulatedIds(
   docs: AnyObject[],
   populations: QueryPopulation[],
@@ -103,11 +103,11 @@ export function skipAndLimit<T>(array: T[], skip?: number, limit?: number) {
   return array;
 }
 
-export function jsonHash(input: unknown) {
-  const json = JSON.stringify(input);
+export function jsonHash(input: AnyObject) {
+  const ejson = EJSON.stringify(input);
   return crypto
     .createHash('sha1')
-    .update(json)
+    .update(ejson)
     .digest('base64')
     .substring(0, 16);
 }

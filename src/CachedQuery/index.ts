@@ -1,4 +1,4 @@
-import { serialize, deserialize } from 'bson';
+import { serialize, deserialize, EJSON } from 'bson';
 import type Mondis from '../mondis';
 import type {
   HasObjectId,
@@ -59,8 +59,7 @@ class CachedQuery<
     if (expectNumParams !== params.length) {
       throw Error(`Invalid number of params passed: expected ${expectNumParams}, got ${params.length}`);
     }
-    // TODO: consider replacing JSON with something else, some types cannot be represented.
-    const paramsStr = JSON.stringify(params);
+    const paramsStr = EJSON.stringify(params);
     return `Q:${hash}${paramsStr}`;
   }
 
