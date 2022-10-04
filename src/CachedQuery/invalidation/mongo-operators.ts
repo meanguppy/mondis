@@ -7,6 +7,12 @@ type MongoOperators = Partial<Record<(typeof operators)[number], AnyObject>>;
 
 type MongooseQueryUpdate = ReturnType<Query<unknown, unknown>['getUpdate']>;
 
+type ArrayUpdateOperator = {
+  $each: unknown[];
+  $position?: number | undefined;
+  $slice?: number | undefined;
+};
+
 /**
  * Unsupported operators:
  *  - $pull: requires expression evaluation.
@@ -14,7 +20,7 @@ type MongooseQueryUpdate = ReturnType<Query<unknown, unknown>['getUpdate']>;
  *  - $currentDate
  *  - $bit
  *  - $pullAll
- *  - array update modifiers: $each, $position, $slice, $sort
+ *  - array update modifiers: $sort
  */
 const operators = [
   '$inc',
@@ -30,15 +36,39 @@ const operators = [
   '$push',
 ] as const;
 
+function parseArrayUpdateOperator(val: unknown): ArrayUpdateOperator {
+  if (!val || typeof val !== 'object' || !('$each' in val)) return { $each: [val] };
+  const { $each, $position = 0, $slice } = val as ArrayUpdateOperator;
+  if (!Array.isArray($each)) throw Error('$each value must be an array');
+  if (typeof $position !== 'number') throw Error('$position value must be a number');
+  if (typeof $slice !== 'number' && typeof $slice !== 'undefined') throw Error('$slice value must be a number');
+  return { $each, $position, $slice };
+}
+
+function applyArrayUpdate(target: unknown[], val: unknown) {
+  const {
+    $each: items,
+    $position: position = 0,
+    $slice: slice,
+  } = parseArrayUpdateOperator(val);
+  // TODO: add $sort support
+  target.splice(position, 0, ...items);
+  if (slice !== undefined) {
+    if (slice >= 0) target.splice(0, slice);
+    if (slice < 0) target.splice(slice);
+  }
+  return target;
+}
+
 const handlers = {
   $inc(target: {}, path: string, val: unknown) {
-    const num = (() => {
+    const num = (function parseVal() {
       if (typeof val === 'number' && !Number.isNaN(val)) return val;
       if (val === true) return 1;
       if (val === false) return 0;
       if (val instanceof Date) return val.valueOf();
       throw Error('$inc amount must be a numeric type');
-    })();
+    }());
     updateValue(target, path, (found: unknown) => {
       if (found === undefined) return val;
       if (typeof found === 'number') return found + num;
@@ -80,6 +110,7 @@ const handlers = {
     if (found === undefined) {
       setValue(target, path, [val]);
     } else if (Array.isArray(found)) {
+      // TODO: support $each modifier + deep-equality object checking
       if (!found.includes(val)) found.push(val);
     } else {
       throw Error('$addToSet target field must be an array');
@@ -104,9 +135,10 @@ const handlers = {
   $push(target: {}, path: string, val: unknown) {
     const found: unknown = getValue(target, path);
     if (found === undefined) {
-      setValue(target, path, [val]);
+      const fresh = applyArrayUpdate([], val);
+      setValue(target, path, fresh);
     } else if (Array.isArray(found)) {
-      found.push(val);
+      applyArrayUpdate(found, val);
     } else {
       throw Error('$push target field must be an array');
     }
