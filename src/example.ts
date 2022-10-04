@@ -12,7 +12,8 @@ const queries = {
   KindSortedByPrice: define<HelloDocument, [string]>({
     model: 'Hello',
     query: (kind) => ({ kind }),
-    select: { name: 1, kind: 1 },
+    select: { name: 1 },
+    populate: { driver: { model: 'World' } },
     sort: { price: 1 },
   }),
   KindsSortedByPrice: define<HelloDocument, [string[]]>({
@@ -31,7 +32,7 @@ const queries = {
 const redis = new Redis(6379, '127.0.0.1');
 const mondis = new Mondis({ redis, mongoose, queries });
 const {
-  // NamesAndKinds,
+  NamesAndKinds,
   KindSortedByPrice,
   // KindsSortedByPrice,
   // AllCars,
@@ -44,13 +45,16 @@ type HelloDocument = {
   name: string;
   kind: string;
   price: number;
-  things: number[];
+  driver: Types.ObjectId;
 };
 const HelloSchema = new Schema<HelloDocument>({
   name: String,
   kind: String,
   price: Number,
-  things: [Number],
+  driver: {
+    ref: 'World',
+    type: Schema.Types.ObjectId,
+  },
 });
 
 type WorldDocument = {
@@ -66,17 +70,18 @@ const World = mongoose.model('World', WorldSchema);
 
 async function seed() {
   await Promise.all([
+    // redis.flushall(),
     Hello.deleteMany({}),
     World.deleteMany({}),
   ]);
-  await World.insertMany([
+  const d = await World.insertMany([
     { name: 'one' },
     { name: 'two' },
     { name: 'three' },
     { name: 'four' },
   ]);
   await Hello.insertMany([
-    { name: 'frank', kind: 'car', price: 4500 },
+    { name: 'frank', kind: 'car', price: 4500, driver: d[0]!._id },
     { name: 'henry', kind: 'truck', price: 2000 },
     { name: 'oliver', kind: 'plane', price: 88000 },
     { name: 'gary', kind: 'plane', price: 321000 },
@@ -86,11 +91,13 @@ async function seed() {
 }
 
 async function main() {
+  console.log(KindSortedByPrice);
   await mongoose.connect('mongodb://localhost/cq-dev');
   await seed();
-  const res1 = await KindSortedByPrice.exec(['car']);
-  await Hello.updateOne({ kind: 'car' }, { $inc: { price: -150000 } });
-  const res2 = await KindSortedByPrice.exec(['car']);
+  console.log(await KindSortedByPrice.exec(['car']));
+  await KindSortedByPrice.exec(['truck']);
+  await NamesAndKinds.exec();
+  await Hello.updateOne({ kind: 'car' }, { name: 'dude' });
 }
 
 main().then(() => setTimeout(() => {
