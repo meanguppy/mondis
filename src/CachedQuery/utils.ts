@@ -120,10 +120,10 @@ export function union<T>(...targets: (T[] | Set<T>)[]) {
   return Array.from(result);
 }
 
-export class LazyArrayMap<T> {
-  map = new Map<string, T[]>();
+export class ArrayMap<K, V> {
+  map = new Map<K, V[]>();
 
-  add(key: string, item: T) {
+  add(key: K, item: V) {
     const array = this.map.get(key);
     if (array) {
       array.push(item);

@@ -9,9 +9,7 @@ import type {
   QueryPopulation,
   HasObjectId,
 } from '../types';
-import {
-  LazyArrayMap,
-} from '../utils';
+import { ArrayMap, getValue } from '../utils';
 
 export type InvalidationMaps = {
   primary: Map<string, InvalidationInfo[]>;
@@ -177,9 +175,7 @@ class InvalidationInfo {
     const keySet = new Set<string>();
     docs.forEach((doc) => {
       // Otherwise, just reconstruct the cache key to only invalidate queries with matching params
-      // TODO: use getValue to support dot-notation?
-      // check with `classifyQuery`, can `dynamicKeys` be dot-notation?
-      const params = dynamicKeys.map((key) => doc[key]);
+      const params = dynamicKeys.map((key) => getValue(doc, key));
       keySet.add(cachedQuery.getCacheKey(params));
     });
     return { keys: Array.from(keySet) };
@@ -211,8 +207,8 @@ class PopulatedInvalidationInfo {
 }
 
 export function buildInvalidationMaps(cachedQueries: CachedQuery[]): InvalidationMaps {
-  const infoPrimary = new LazyArrayMap<InvalidationInfo>();
-  const infoPopulate = new LazyArrayMap<PopulatedInvalidationInfo>();
+  const infoPrimary = new ArrayMap<string, InvalidationInfo>();
+  const infoPopulate = new ArrayMap<string, PopulatedInvalidationInfo>();
   cachedQueries.forEach((cachedQuery) => {
     const { model, populate } = cachedQuery.config;
     infoPrimary.add(model, new InvalidationInfo(cachedQuery));
