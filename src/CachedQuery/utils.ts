@@ -1,12 +1,10 @@
+import { EJSON } from 'bson';
 import { Types } from 'mongoose';
 import crypto from 'crypto';
-import sift from 'sift';
 import type {
   AnyObject,
-  QueryFilter,
   HasObjectId,
   QueryPopulation,
-  QueryKeysClassification,
 } from './types';
 
 function walk(
@@ -55,8 +53,8 @@ export function getValue(target: unknown, path: string) {
 }
 
 export function hasObjectId(target: unknown): target is HasObjectId {
-  return (
-    !!target
+  return !!(
+    target
     && typeof target === 'object'
     && (target as { _id?: unknown })._id instanceof Types.ObjectId
   );
@@ -67,12 +65,11 @@ export function hasObjectId(target: unknown): target is HasObjectId {
  * mongoose population config. Embedded documents not included
  */
 export function collectPopulatedIds(
-  docs: Partial<HasObjectId>[],
-  populations?: QueryPopulation[],
+  docs: AnyObject[],
+  populations: QueryPopulation[],
 ) {
-  const initial = docs.filter((doc) => !!doc._id).map((doc) => String(doc._id));
-  if (!populations?.length) return initial;
-  const result = new Set(initial);
+  if (!populations.length) return [];
+  const result = new Set<string>();
 
   docs.forEach((doc) => {
     populations.forEach(({ path, populate: innerPopulate }) => {
@@ -82,16 +79,14 @@ export function collectPopulatedIds(
       const items: unknown[] = Array.isArray(inner) ? inner : [inner];
       items.forEach((innerVal) => {
         if (!hasObjectId(innerVal)) return;
-        if (innerPopulate) {
-          collectPopulatedIds([innerVal], innerPopulate).forEach((id) => result.add(id));
-        } else {
-          result.add(String(innerVal._id));
-        }
+        result.add(String(innerVal._id));
+        if (!innerPopulate) return;
+        collectPopulatedIds([innerVal], innerPopulate).forEach((id) => result.add(id));
       });
     });
   });
 
-  return [...result];
+  return Array.from(result);
 }
 
 /**
@@ -108,77 +103,32 @@ export function skipAndLimit<T>(array: T[], skip?: number, limit?: number) {
   return array;
 }
 
-/**
- * Classifies all keys in the query:
- * - Which keys are static and which are configurable?
- * - Is any configurable query complex (not an equality comparison)?
- */
-export function classifyQueryKeys<T, P extends unknown[]>(
-  input: QueryFilter<T> | ((...args: P) => QueryFilter<T>),
-): QueryKeysClassification {
-  if (input && typeof input === 'object') {
-    return { matcher: sift<unknown>(input), dynamicKeys: [], complexQuery: false };
-  }
-  if (!input || typeof input !== 'function') throw Error('Bad query configuration');
-
-  // map params to objects, used to compare by reference without risk of ambiguous comparison
-  const params = Array(input.length).fill(null).map(() => ({})) as P;
-  const query = (input as (...args: P) => QueryFilter<T>)(...params);
-
-  // recursively search query object for parameters (empty objects)
-  let complexQuery = false;
-  const dynamicKeys: string[] = [];
-  function findParam(key: string, target: unknown, inside = false) {
-    if (!target || typeof target !== 'object') return;
-    const paramIdx = params.indexOf(target);
-    if (paramIdx >= 0) {
-      if (inside) complexQuery = true;
-      dynamicKeys[paramIdx] = key;
-    } else {
-      Object.values(target).forEach((v) => findParam(key, v, true));
-    }
-  }
-  Object.entries(query).forEach(([k, v]) => findParam(k, v));
-
-  const staticKeys: AnyObject = {};
-  Object.entries(query).forEach(([k, v]) => {
-    if (!dynamicKeys.includes(k)) {
-      staticKeys[k] = v;
-    }
-  });
-
-  return { matcher: sift(staticKeys), dynamicKeys, complexQuery };
-}
-
-export function jsonHash(input: unknown) {
-  const json = JSON.stringify(input);
+export function jsonHash(input: AnyObject) {
+  const ejson = EJSON.stringify(input);
   return crypto
     .createHash('sha1')
-    .update(json)
+    .update(ejson)
     .digest('base64')
     .substring(0, 16);
 }
 
-export class PromiseQueue {
-  active = 0;
+export function union<T>(...targets: (T[] | Set<T>)[]) {
+  const result = new Set<T>();
+  targets.forEach((target) => {
+    target.forEach((val) => result.add(val));
+  });
+  return Array.from(result);
+}
 
-  _resolves: Array<() => void> = [];
+export class ArrayMap<K, V> {
+  map = new Map<K, V[]>();
 
-  add(promise: Promise<unknown>) {
-    this.active += 1;
-    promise.finally(() => {
-      this.active -= 1;
-      if (this.active === 0 && this._resolves.length) {
-        this._resolves.forEach((res) => res());
-        this._resolves = [];
-      }
-    });
-  }
-
-  flush() {
-    if (this.active === 0) return Promise.resolve();
-    return new Promise<void>((resolve) => {
-      this._resolves.push(resolve);
-    });
+  add(key: K, item: V) {
+    const array = this.map.get(key);
+    if (array) {
+      array.push(item);
+    } else {
+      this.map.set(key, [item]);
+    }
   }
 }

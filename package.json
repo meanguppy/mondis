@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "bson": "^4.7.0",
+    "immer": "^9.0.15",
     "ioredis": "^5.2.3",
     "mongoose": "^6.5.4",
     "sift": "^16.0.0"

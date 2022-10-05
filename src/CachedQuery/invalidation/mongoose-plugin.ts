@@ -5,13 +5,18 @@ import type {
   Schema,
   Types,
 } from 'mongoose';
-import { applyUpdateQuery, buildUpsertedDocument } from './mongoOperators';
+import {
+  mapBeforeAndAfter,
+  buildUpsertedDocument,
+  collectModifiedKeys,
+  parseQueryUpdate,
+} from './mongo-operators';
 import type {
   CacheEffect,
   HasObjectId,
-} from './types';
+} from '../types';
 
-type DocumentWithId = HydratedDocument<unknown>;
+type DocumentWithId = HydratedDocument<{ _id: Types.ObjectId }>;
 
 type QueryExtras<ResType = unknown> =
   & Query<ResType, HasObjectId>
@@ -38,7 +43,7 @@ function getDocumentInfo(doc: DocumentWithId) {
 function getQueryInfo(query: QueryExtras) {
   const { model: { modelName } } = query;
   const { upsert = false } = query.getOptions();
-  const update = query.getUpdate();
+  const update = parseQueryUpdate(query.getUpdate());
   const filter = query.getFilter();
   return { modelName, upsert, update, filter };
 }
@@ -52,49 +57,57 @@ type CacheEffectReceiver = {
 
 export default function bindPlugin(target: CacheEffectReceiver) {
   function effect(evt: CacheEffect) {
-    target.onCacheEffect(evt);
+    return target.onCacheEffect(evt);
   }
+  // TODO: start promise in pre middleware, but await it in post.
   return function mondisPlugin(schema: Schema) {
-    function preDocSave(this: DocumentWithId) {
+    async function preDocSave(this: DocumentWithId) {
       const { _id, modelName, isNew } = getDocumentInfo(this);
       if (!modelName) return; // embedded document creation, ignore
-      if (!isNew) effect({ op: 'remove', modelName, ids: [_id] });
-      effect({ op: 'insert', modelName, docs: [this.toObject()] });
+      if (isNew) {
+        await effect({ op: 'insert', modelName, docs: [this.toObject()] });
+      } else {
+        const modified = this.directModifiedPaths();
+        if (!modified.length) return;
+        const before = await this.$model(modelName).findById(_id).lean();
+        if (!before) return;
+        const after = this.toObject();
+        await effect({ op: 'update', modelName, modified, docs: [{ before, after }] });
+      }
     }
 
-    function preDocRemove(this: DocumentWithId) {
-      const { _id, modelName } = getDocumentInfo(this);
-      effect({ op: 'remove', modelName, ids: [_id] });
+    async function preDocRemove(this: DocumentWithId) {
+      const { _id } = getDocumentInfo(this);
+      await effect({ op: 'remove', ids: [_id] });
     }
 
     async function preQueryUpdate(this: QueryExtras) {
       const { modelName, update, filter, upsert } = getQueryInfo(this);
       const docs = await findDocs(this.clone(), false);
       if (docs.length) {
-        applyUpdateQuery(docs, update);
-        effect({ op: 'remove', modelName, ids: docs.map((doc) => doc._id) });
-        effect({ op: 'insert', modelName, docs });
+        const modified = collectModifiedKeys(update);
+        const beforeAndAfter = mapBeforeAndAfter(docs, update);
+        await effect({ op: 'update', modelName, modified, docs: beforeAndAfter });
       } else if (upsert) {
         const upserted = buildUpsertedDocument(filter, update);
-        effect({ op: 'insert', modelName, docs: [upserted] });
+        await effect({ op: 'insert', modelName, docs: [upserted] });
       }
     }
 
     async function preQueryRemove(this: QueryExtras) {
-      const { modelName } = getQueryInfo(this);
       const docs = await findDocs(this.clone(), true);
       if (docs.length) {
-        effect({ op: 'remove', modelName, ids: docs.map((doc) => doc._id) });
+        await effect({ op: 'remove', ids: docs.map((doc) => doc._id) });
       }
     }
 
-    function preInsertMany(this: Model<unknown>, next: () => void, input: unknown) {
+    async function preInsertMany(this: Model<unknown>, next: () => void, input: unknown) {
       // Unfortunately this middleware executes before the Documents are constructed,
       // meaning default value are missing. Create document only to pass to invalidation
       const { modelName } = this;
       const docs = (Array.isArray(input) ? input : [input])
-        .map((item: unknown) => new this(item).toObject());
-      effect({ op: 'insert', modelName, docs });
+        .map((item) => new this(item).toObject());
+      await effect({ op: 'insert', modelName, docs });
       next();
     }
 
