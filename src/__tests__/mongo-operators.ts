@@ -3,7 +3,7 @@ import {
   applyUpdateQuery,
   type MongooseQueryUpdate,
   type MongoOperators,
-} from '../CachedQuery/mongoOperators';
+} from '../CachedQuery/invalidation/mongo-operators';
 
 type AnyObject = Record<string, unknown>;
 
