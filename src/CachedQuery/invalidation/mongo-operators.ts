@@ -1,5 +1,6 @@
 import type { Query } from 'mongoose';
 import { produce } from 'immer';
+import { Timestamp } from 'bson';
 import type { AnyObject } from '../types';
 import { getValue, setValue, unsetValue, updateValue } from '../utils';
 
@@ -11,18 +12,18 @@ type ArrayUpdateOperator = {
   $each: unknown[];
   $position?: number | undefined;
   $slice?: number | undefined;
+  $sort?: Record<string, -1 | 1>;
 };
 
 /**
- * Unsupported operators:
- *  - $pull: requires expression evaluation.
- * TODO at some stage:
- *  - $currentDate
- *  - $bit
- *  - $pullAll
- *  - array update modifiers: $sort
+ * TODO operations to support:
+ * - $pull: requires expression evaluation (use sift?)
+ * - $pullAll
+ * - $bit
+ * - array update modifiers: $sort
  */
 const operators = [
+  '$currentDate',
   '$inc',
   '$min',
   '$max',
@@ -38,7 +39,8 @@ const operators = [
 
 function parseArrayUpdateOperator(val: unknown): ArrayUpdateOperator {
   if (!val || typeof val !== 'object' || !('$each' in val)) return { $each: [val] };
-  const { $each, $position = 0, $slice } = val as ArrayUpdateOperator;
+  const { $each, $position = 0, $slice, $sort } = val as ArrayUpdateOperator;
+  if ($sort) throw Error('$sort is not a supported array update operation'); // TODO: implement sort
   if (!Array.isArray($each)) throw Error('$each value must be an array');
   if (typeof $position !== 'number') throw Error('$position value must be a number');
   if (typeof $slice !== 'number' && typeof $slice !== 'undefined') throw Error('$slice value must be a number');
@@ -51,7 +53,6 @@ function applyArrayUpdate(target: unknown[], val: unknown) {
     $position: position = 0,
     $slice: slice,
   } = parseArrayUpdateOperator(val);
-  // TODO: add $sort support
   target.splice(position, 0, ...items);
   if (slice !== undefined) {
     if (slice >= 0) target.splice(0, slice);
@@ -61,6 +62,18 @@ function applyArrayUpdate(target: unknown[], val: unknown) {
 }
 
 const handlers = {
+  $currentDate(target: {}, path: string, val: unknown) {
+    const now = (function parseVal() {
+      if (val === true || val === false) return new Date();
+      const type = getValue(val, '$type');
+      if (type === 'date') return new Date();
+      if (type === 'timestamp') {
+        return new Timestamp({ t: Date.now() / 1000, i: 1 });
+      }
+      throw Error('$currentDate value is invalid');
+    }());
+    setValue(target, path, now);
+  },
   $inc(target: {}, path: string, val: unknown) {
     const num = (function parseVal() {
       if (typeof val === 'number' && !Number.isNaN(val)) return val;
@@ -169,7 +182,7 @@ function applyUpdates(targets: Array<{}>, update: MongoOperators) {
     const handler = handlers[op];
     Object.entries(paths).forEach(([path, val]) => {
       if (val === undefined) return;
-      if (path.includes('.$')) throw Error('Updating arrays with <field>.$ is unsupported');
+      if (path.includes('.$')) throw Error('Updating arrays with <field>.$ is not supported');
       targets.forEach((target) => {
         handler(target, path, val);
       });
