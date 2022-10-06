@@ -31,18 +31,6 @@ export function oid(byte?: string) {
   );
 }
 
-const VehicleSchema = new Schema<VehicleDocument>({
-  kind: { type: String },
-  driver: { type: Schema.Types.ObjectId, ref: 'Driver' },
-  price: { type: Number },
-  routes: [{ type: String }],
-});
-
-const DriverSchema = new Schema<DriverDocument>({
-  name: { type: String },
-  salary: { type: Number },
-});
-
 export const Drivers = [
   { _id: oid('D1'), name: 'Henry', salary: 55000 },
   { _id: oid('D2'), name: 'John', salary: 61000 },
@@ -84,8 +72,8 @@ export const MongooseUpdates: UpdateMap = {
   UpdateCarDriver: ({ Vehicle }) => (
     Vehicle.updateOne({ kind: 'car', driver: oid('D1') }, { driver: oid('D2') }).exec()
   ),
-  UpdateTruckToBus: ({ Vehicle }) => (
-    Vehicle.updateOne({ kind: 'truck' }, { kind: 'bus' }).exec()
+  UpdateCarToBus: ({ Vehicle }) => (
+    Vehicle.updateOne({ kind: 'car' }, { kind: 'bus' }).exec()
   ),
   UpdateHenrySalary: ({ Driver }) => (
     Driver.updateOne({ name: 'Henry' }, { salary: 60000 }).exec()
@@ -95,6 +83,9 @@ export const MongooseUpdates: UpdateMap = {
   ),
   UpdateBusRoutes: ({ Vehicle }) => (
     Vehicle.updateOne({ kind: 'bus' }, { $push: { routes: 'B' } }).exec()
+  ),
+  UpsertCarViaPrice: ({ Vehicle }) => (
+    Vehicle.updateOne({ kind: 'car', price: 11000 }, { price: 15000 }, { upsert: true }).exec()
   ),
 
   RemoveCar: ({ Vehicle }) => (
@@ -127,11 +118,17 @@ const CachedQueryDefinitions = {
     query: (kind) => ({ kind }),
     select: { _id: 1, price: 1 },
   }),
-  /* Vehicles by driver, with routes */
-  Dynamic2: define<VehicleDocument, [Types.ObjectId]>({
+  /* Vehicles by route, with routes */
+  Dynamic2: define<VehicleDocument, [string]>({
     model: 'Vehicle',
-    query: (driver) => ({ driver }),
+    query: (route) => ({ routes: route }),
     select: { _id: 1, routes: 1 },
+  }),
+  /* Vehicles by driver, that have no routes, with driver and kind */
+  Dynamic3: define<VehicleDocument, [Types.ObjectId]>({
+    model: 'Vehicle',
+    query: (driver) => ({ driver, routes: { $size: 0 } }),
+    select: { _id: 1, driver: 1, kind: 1 },
   }),
   /* Vehicles of kinds, with kind */
   Complex1: define<VehicleDocument, [string[]]>({
@@ -172,13 +169,15 @@ const CachedQueryDefinitions = {
     select: { _id: 1 },
     sort: { price: 1 },
   }),
-  /* Complex query without insert invalidations */
+  /* Complex query without insert invalidations, without driver */
   Targeted1: define<VehicleDocument, [Types.ObjectId[]]>({
     model: 'Vehicle',
     query: (ids) => ({ _id: { $in: ids } }),
-    select: { _id: 1 },
+    select: { driver: 0 },
     invalidateOnInsert: false,
   }),
+  // TODO: ADD `filter`-ed query
+  // TODO: ADD no-op update/query
 } as const;
 
 export async function init() {
@@ -187,8 +186,21 @@ export async function init() {
   const mondis = new Mondis({ redis, mongoose, queries: CachedQueryDefinitions });
 
   mongoose.plugin(mondis.plugin());
-  const Vehicle = mongoose.model<VehicleDocument>('Vehicle', VehicleSchema);
-  const Driver = mongoose.model<DriverDocument>('Driver', DriverSchema);
+  const Vehicle = mongoose.model('Vehicle', new Schema<VehicleDocument>({
+    kind: { type: String },
+    driver: { type: Schema.Types.ObjectId, ref: 'Driver' },
+    price: { type: Number },
+    routes: [{ type: String }],
+  }));
+  const Driver = mongoose.model('Driver', new Schema<DriverDocument>({
+    name: { type: String },
+    salary: { type: Number },
+  }));
+
+  Object.entries(mondis.queries).forEach(([name, cachedQuery]) => {
+    const fakeHash = `${name}${'_'.repeat(24)}`.substring(0, 16);
+    jest.spyOn(cachedQuery, 'hash', 'get').mockReturnValue(fakeHash);
+  });
 
   await mongoose.connect('mongodb://localhost/testing');
   await Promise.all([
@@ -211,9 +223,6 @@ export function mondisTest(
     const context = await init();
     await handler(context);
     const { redis, mongoose } = context;
-    await Promise.all([
-      mongoose.disconnect(),
-      redis.disconnect(),
-    ]);
+    await Promise.all([mongoose.disconnect(), redis.disconnect()]);
   });
 }

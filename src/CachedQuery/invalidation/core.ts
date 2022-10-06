@@ -18,7 +18,7 @@ export type InvalidationMaps = {
 
 export type CollectedInvalidations = {
   keys?: string[];
-  sets?: { set: string, filter?: string | undefined }[];
+  sets?: { set: string, filter?: string }[];
 };
 
 type InvalidationTarget =
@@ -249,7 +249,8 @@ export function collectInvalidations(
     keys: Array.from(keys),
     sets: Array.from(sets, (str) => {
       const split = str.split(',');
-      return { set: split[0]!, filter: split[1] };
+      if (split.length >= 2) return { set: split[0]!, filter: split[1]! };
+      return { set: split[0]! };
     }),
   };
 }
