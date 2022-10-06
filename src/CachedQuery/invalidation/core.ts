@@ -54,12 +54,14 @@ function wasProjectionModified(
 // TODO: think about how $slice/$elemMatch/`.$` interacts with this.
 function classifyProjection(project: QueryProjection): QuerySelectInfo {
   const paths: string[] = [];
+  let selectedId = false;
   let inclusive: boolean | undefined;
   Object.entries(project).forEach(([path, value]) => {
     if (value !== 0 && value !== 1) throw Error('Query select values must be 0 or 1');
     const inclusiveOp = (value === 1);
     if (path === '_id') {
       if (value !== 1) throw Error('Excluding _id from projection is forbidden');
+      selectedId = true;
     } else {
       if (inclusive === undefined) {
         inclusive = inclusiveOp;
@@ -69,6 +71,9 @@ function classifyProjection(project: QueryProjection): QuerySelectInfo {
       paths.push(path);
     }
   });
+  if (inclusive === undefined && selectedId) {
+    return { selectInclusive: true, selectPaths: ['_id'] };
+  }
   return { selectInclusive: !!inclusive, selectPaths: paths };
 }
 
