@@ -63,7 +63,7 @@ export default class InvalidationHandler {
     });
   }
 
-  private async doInvalidations(collected: CollectedInvalidations) {
+  async doInvalidations(collected: CollectedInvalidations) {
     const { keys, sets } = collected;
     if ((!keys || !keys.length) && (!sets || !sets.length)) return;
 

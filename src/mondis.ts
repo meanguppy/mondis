@@ -107,7 +107,7 @@ class Mondis<Q = {}> {
 
   private _mongoose?: Mongoose;
 
-  private invalidator: InvalidationHandler;
+  readonly invalidator: InvalidationHandler;
 
   readonly queries: CachedQueryMap<Q>;
 
