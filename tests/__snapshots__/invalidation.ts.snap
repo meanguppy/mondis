@@ -4,7 +4,6 @@ exports[`InsertCar 1`] = `
 Object {
   "keys": Array [
     "Q:Dynamic1________[\\"car\\"]",
-    "Q:Dynamic2________[[]]",
     "Q:Dynamic3________[null]",
     "Q:Populated1______[]",
     "Q:Populated2______[]",
@@ -16,6 +15,9 @@ Object {
     },
     Object {
       "set": "A:Complex1________",
+    },
+    Object {
+      "set": "A:Dynamic2________",
     },
   ],
 }
@@ -32,7 +34,6 @@ exports[`InsertTruckWithDriver 1`] = `
 Object {
   "keys": Array [
     "Q:Dynamic1________[\\"truck\\"]",
-    "Q:Dynamic2________[[\\"C\\"]]",
     "Q:Populated1______[]",
     "Q:Populated2______[]",
     "Q:Sorted1_________[]",
@@ -44,6 +45,9 @@ Object {
     },
     Object {
       "set": "A:Complex1________",
+    },
+    Object {
+      "set": "A:Dynamic2________",
     },
   ],
 }
@@ -122,14 +126,15 @@ Object {
 exports[`UpdateBusRoutes 1`] = `
 Object {
   "keys": Array [
-    "Q:Dynamic2________[[\\"B\\"]]",
-    "Q:Dynamic2________[[]]",
     "Q:Dynamic3________[null]",
     "Q:Unique1_________[{\\"$oid\\":\\"0000000000000000000000c1\\"}]",
   ],
   "sets": Array [
     Object {
       "set": "A:Targeted1_______",
+    },
+    Object {
+      "set": "A:Dynamic2________",
     },
   ],
 }

@@ -112,14 +112,6 @@ export function jsonHash(input: AnyObject) {
     .substring(0, 16);
 }
 
-export function union<T>(...targets: (T[] | Set<T>)[]) {
-  const result = new Set<T>();
-  targets.forEach((target) => {
-    target.forEach((val) => result.add(val));
-  });
-  return Array.from(result);
-}
-
 export class ArrayMap<K, V> {
   map = new Map<K, V[]>();
 

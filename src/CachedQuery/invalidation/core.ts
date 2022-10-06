@@ -177,12 +177,20 @@ class InvalidationInfo {
     // If any configurable part of the query is not just an equality check,
     // we have to invalidate all queries, because we don't know if it has changed.
     if (complexQuery) return { set: `A:${cachedQuery.hash}` };
+    // Otherwise, reconstruct the cache keys to only invalidate queries with relevant params.
     const keySet = new Set<string>();
-    docs.forEach((doc) => {
-      // Otherwise, just reconstruct the cache key to only invalidate queries with matching params
-      const params = dynamicKeys.map((key) => getValue(doc, key));
+    for (const doc of docs) {
+      const params: unknown[] = [];
+      for (const key of dynamicKeys) {
+        const value = getValue(doc, key);
+        // If the value is an array, we should just invalidate all instead,
+        // because a doc with `key: [1,2,3]` can be matched with `key: 1`.
+        // TODO: it is possible to expand the array into one key per item.
+        if (Array.isArray(value)) return { set: `A:${cachedQuery.hash}` };
+        params.push(value);
+      }
       keySet.add(cachedQuery.getCacheKey(params));
-    });
+    }
     return { keys: Array.from(keySet) };
   }
 }
