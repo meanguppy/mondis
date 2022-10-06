@@ -1,14 +1,14 @@
+import { Timestamp } from 'bson';
 import {
   buildUpsertedDocument,
-  applyUpdateQuery,
-  type MongooseQueryUpdate,
+  applyUpdates,
   type MongoOperators,
 } from '../src/CachedQuery/invalidation/mongo-operators';
 
 type AnyObject = Record<string, unknown>;
 
 type TestCaseStruct = {
-  [op: string]: Array<[AnyObject, Partial<MongoOperators>, AnyObject]>;
+  [op: string]: Array<[AnyObject, MongoOperators, AnyObject]>;
 };
 
 const GoodTestCases: TestCaseStruct = {
@@ -35,6 +35,7 @@ const GoodTestCases: TestCaseStruct = {
     [{ n: 30 }, { $max: { n: -20 } }, { n: 30 }],
   ],
   $mul: [
+    [{}, { $mul: { n: 5 } }, { n: 0 }],
     [{ n: 0 }, { $mul: { n: 5 } }, { n: 0 }],
     [{ n: 10 }, { $mul: { n: 8 } }, { n: 80 }],
     [{ n: 15 }, { $mul: { n: 0 } }, { n: 0 }],
@@ -52,7 +53,7 @@ const GoodTestCases: TestCaseStruct = {
     [{ a: { b: 1 } }, { $set: { 'a.b': 2 } }, { a: { b: 2 } }],
   ],
   $setOnInsert: [
-    [{ a: 1 }, { $setOnInsert: { b: 2 } }, { a: 1 }],
+    [{ a: 1 }, { $setOnInsert: { b: 2 } }, { a: 1 }], // no-op during update, upsert only
   ],
   $unset: [
     [{}, { $unset: { a: 1 } }, {}],
@@ -77,19 +78,39 @@ const GoodTestCases: TestCaseStruct = {
     [{ a: [1, 2, 3] }, { $push: { a: 4 } }, { a: [1, 2, 3, 4] }],
     [{ a: [1, 2, 3] }, { $push: { a: 3 } }, { a: [1, 2, 3, 3] }],
     [{ a: [1, 2, 3] }, { $push: { a: 'hello' } }, { a: [1, 2, 3, 'hello'] }],
+    [{ a: [1, 2] }, { $push: { a: { $each: [3, 9] } } }, { a: [1, 2, 3, 9] }],
+    [{ a: [1, 2] }, { $push: { a: { $each: [4, 5], $position: 0 } } }, { a: [4, 5, 1, 2] }],
+    [{ a: [1, 2, 3] }, { $push: { a: { $each: [9], $position: -1 } } }, { a: [1, 2, 9, 3] }],
+    [{ a: [1, 2] }, { $push: { a: { $each: [3, 9], $slice: 3 } } }, { a: [1, 2, 3] }],
+    [{ a: [1, 2] }, { $push: { a: { $each: [3, 9], $slice: -3 } } }, { a: [2, 3, 9] }],
   ],
 };
 
+function immutUpdate<T = AnyObject>(input: AnyObject, op: MongoOperators) {
+  const cloned = { ...input };
+  applyUpdates([cloned], op);
+  return cloned as unknown as T;
+}
+
 describe('Mongo update operators', () => {
+  it('$currentDate', () => {
+    function expectFieldInstance(value: unknown, instance: unknown) {
+      expect(immutUpdate({}, { $currentDate: { a: value } })['a']).toBeInstanceOf(instance);
+    }
+    expectFieldInstance(true, Date);
+    expectFieldInstance(false, Date);
+    expectFieldInstance({ $type: 'date' }, Date);
+    expectFieldInstance({ $type: 'timestamp' }, Timestamp);
+  });
+
   Object.entries(GoodTestCases).forEach(([name, cases]) => {
     it(name, () => {
       cases.forEach(([input, op, output]) => {
-        const cloned = { ...input };
-        applyUpdateQuery([cloned], op as MongooseQueryUpdate);
-        expect(cloned).toMatchObject(output);
+        expect(immutUpdate(input, op)).toEqual(output);
       });
     });
   });
+
   it('can build upserted document', () => {
     buildUpsertedDocument({}, {});
   });

@@ -39,24 +39,28 @@ const operators = [
 
 function parseArrayUpdateOperator(val: unknown): ArrayUpdateOperator {
   if (!val || typeof val !== 'object' || !('$each' in val)) return { $each: [val] };
-  const { $each, $position = 0, $slice, $sort } = val as ArrayUpdateOperator;
+  const { $each, $position, $slice, $sort } = val as ArrayUpdateOperator;
   if ($sort) throw Error('$sort is not a supported array update operation'); // TODO: implement sort
   if (!Array.isArray($each)) throw Error('$each value must be an array');
-  if (typeof $position !== 'number') throw Error('$position value must be a number');
-  if (typeof $slice !== 'number' && typeof $slice !== 'undefined') throw Error('$slice value must be a number');
+  if (typeof $position !== 'number' && $position !== undefined) throw Error('$position value must be a number');
+  if (typeof $slice !== 'number' && $slice !== undefined) throw Error('$slice value must be a number');
   return { $each, $position, $slice };
 }
 
 function applyArrayUpdate(target: unknown[], val: unknown) {
   const {
     $each: items,
-    $position: position = 0,
+    $position: position,
     $slice: slice,
   } = parseArrayUpdateOperator(val);
-  target.splice(position, 0, ...items);
+  if (position === undefined) {
+    target.push(...items);
+  } else {
+    target.splice(position, 0, ...items);
+  }
   if (slice !== undefined) {
-    if (slice >= 0) target.splice(0, slice);
-    if (slice < 0) target.splice(slice);
+    if (slice >= 0) target.splice(slice);
+    if (slice < 0) target.splice(0, target.length + slice);
   }
   return target;
 }
@@ -176,7 +180,7 @@ function getFilterValue(value: unknown): { add: boolean, value?: unknown } {
   return { add: true, value };
 }
 
-function applyUpdates(targets: Array<{}>, update: MongoOperators) {
+export function applyUpdates(targets: Array<{}>, update: MongoOperators) {
   Object.entries(update).forEach(([op, paths]) => {
     if (!isSupportedOperator(op)) throw Error(`Unsupported update operator ${op}`);
     const handler = handlers[op];
