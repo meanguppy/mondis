@@ -12,7 +12,7 @@ type InputPopulation = Record<string, {
   populate?: InputPopulation;
 }>;
 
-type InputConfig<P extends unknown[]> = {
+export type InputConfig<P extends unknown[] = unknown[]> = {
   model: string;
   query: [P] extends [never]
     ? QueryFilter
@@ -48,7 +48,6 @@ export type CachedQueryConfig<
 > = ParsedConfig<P> & { __brand: T };
 
 function transformPopulate(input: InputPopulation): QueryPopulation[] {
-  if (!input) return [];
   return Object.entries(input).map(([path, config]) => {
     const { model, select, populate } = config;
     return {

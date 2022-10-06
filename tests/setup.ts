@@ -1,7 +1,7 @@
 import sharedMongoose, { Schema } from 'mongoose';
 import type { Model, Types } from 'mongoose';
 import Redis from 'ioredis';
-import { parseConfig as define } from '../src/CachedQuery/config';
+import { InputConfig, parseConfig as define } from '../src/CachedQuery/config';
 import Mondis from '../src/mondis';
 
 export type VehicleDocument = {
@@ -25,9 +25,9 @@ type ModelMap = {
 
 type UpdateMap = Record<string, ((map: ModelMap) => Promise<unknown>)>;
 
-export function oid(byte?: string) {
+export function oid(byte: string) {
   return new sharedMongoose.Types.ObjectId(
-    byte ? `0000000000000000000000${byte}` : undefined,
+    `0000000000000000000000${byte}`,
   );
 }
 
@@ -99,91 +99,105 @@ export const MongooseUpdates: UpdateMap = {
   ),
 };
 
-const CachedQueryDefinitions = {
+export type MondisTestInstance = Awaited<ReturnType<typeof init>>['mondis'];
+
+export async function init(extraConfig: Partial<InputConfig>) {
+  const queries = {
   /* All cars */
-  Static1: define<VehicleDocument>({
-    model: 'Vehicle',
-    query: { kind: 'car' },
-    select: { _id: 1 },
-  }),
-  /* Expensive vehicles, with price */
-  Static2: define<VehicleDocument>({
-    model: 'Vehicle',
-    query: { price: { $gte: 8000 } },
-    select: { _id: 1, price: 1 },
-  }),
-  /* Vehicles by kind, with price */
-  Dynamic1: define<VehicleDocument, [string]>({
-    model: 'Vehicle',
-    query: (kind) => ({ kind }),
-    select: { _id: 1, price: 1 },
-  }),
-  /* Vehicles by route, with routes */
-  Dynamic2: define<VehicleDocument, [string]>({
-    model: 'Vehicle',
-    query: (route) => ({ routes: route }),
-    select: { _id: 1, routes: 1 },
-  }),
-  /* Vehicles by driver, that have no routes, with driver and kind */
-  Dynamic3: define<VehicleDocument, [Types.ObjectId]>({
-    model: 'Vehicle',
-    query: (driver) => ({ driver, routes: { $size: 0 } }),
-    select: { _id: 1, driver: 1, kind: 1 },
-  }),
-  /* Vehicles of kinds, with kind */
-  Complex1: define<VehicleDocument, [string[]]>({
-    model: 'Vehicle',
-    query: (kinds) => ({ kind: { $in: kinds } }),
-    select: { _id: 1, kind: 1 },
-  }),
-  /* Vehicles over price, with price */
-  Complex2: define<VehicleDocument, [number]>({
-    model: 'Vehicle',
-    query: (minPrice) => ({ price: { $gte: minPrice } }),
-    select: { _id: 1, price: 1 },
-  }),
-  /* Vehicle by id, without driver */
-  Unique1: define<VehicleDocument, [Types.ObjectId]>({
-    model: 'Vehicle',
-    query: (_id) => ({ _id }),
-    unique: true,
-  }),
-  /* All vehicles, with full driver */
-  Populated1: define<VehicleDocument>({
-    model: 'Vehicle',
-    query: {},
-    select: { _id: 1 },
-    populate: { driver: { model: 'Driver' } },
-  }),
-  /* All vehicles, with driver name only */
-  Populated2: define<VehicleDocument>({
-    model: 'Vehicle',
-    query: {},
-    select: { _id: 1 },
-    populate: { driver: { model: 'Driver', select: { name: 1 } } },
-  }),
-  /* Expensive vehicles, sorted by price, without price */
-  Sorted1: define<VehicleDocument>({
-    model: 'Vehicle',
-    query: { price: { $gte: 8000 } },
-    select: { _id: 1 },
-    sort: { price: 1 },
-  }),
-  /* Complex query without insert invalidations, without driver */
-  Targeted1: define<VehicleDocument, [Types.ObjectId[]]>({
-    model: 'Vehicle',
-    query: (ids) => ({ _id: { $in: ids } }),
-    select: { driver: 0 },
-    invalidateOnInsert: false,
-  }),
+    Static1: define<VehicleDocument>({
+      ...extraConfig,
+      model: 'Vehicle',
+      query: { kind: 'car' },
+      select: { _id: 1 },
+    }),
+    /* Expensive vehicles, with price */
+    Static2: define<VehicleDocument>({
+      ...extraConfig,
+      model: 'Vehicle',
+      query: { price: { $gte: 8000 } },
+      select: { _id: 1, price: 1 },
+    }),
+    /* Vehicles by kind, with price */
+    Dynamic1: define<VehicleDocument, [string]>({
+      ...extraConfig,
+      model: 'Vehicle',
+      query: (kind) => ({ kind }),
+      select: { _id: 1, price: 1 },
+    }),
+    /* Vehicles by route, with routes */
+    Dynamic2: define<VehicleDocument, [string]>({
+      ...extraConfig,
+      model: 'Vehicle',
+      query: (route) => ({ routes: route }),
+      select: { _id: 1, routes: 1 },
+    }),
+    /* Vehicles by driver, that have no routes, with driver and kind */
+    Dynamic3: define<VehicleDocument, [Types.ObjectId]>({
+      ...extraConfig,
+      model: 'Vehicle',
+      query: (driver) => ({ driver, routes: { $size: 0 } }),
+      select: { _id: 1, driver: 1, kind: 1 },
+    }),
+    /* Vehicles of kinds, with kind */
+    Complex1: define<VehicleDocument, [string[]]>({
+      ...extraConfig,
+      model: 'Vehicle',
+      query: (kinds) => ({ kind: { $in: kinds } }),
+      select: { _id: 1, kind: 1 },
+    }),
+    /* Vehicles over price, with price */
+    Complex2: define<VehicleDocument, [number]>({
+      ...extraConfig,
+      model: 'Vehicle',
+      query: (minPrice) => ({ price: { $gte: minPrice } }),
+      select: { _id: 1, price: 1 },
+    }),
+    /* Vehicle by id, without driver */
+    Unique1: define<VehicleDocument, [Types.ObjectId]>({
+      ...extraConfig,
+      model: 'Vehicle',
+      query: (_id) => ({ _id }),
+      unique: true,
+    }),
+    /* All vehicles, with full driver */
+    Populated1: define<VehicleDocument>({
+      ...extraConfig,
+      model: 'Vehicle',
+      query: {},
+      select: { _id: 1 },
+      populate: { driver: { model: 'Driver' } },
+    }),
+    /* All vehicles, with driver name only */
+    Populated2: define<VehicleDocument>({
+      ...extraConfig,
+      model: 'Vehicle',
+      query: {},
+      select: { _id: 1 },
+      populate: { driver: { model: 'Driver', select: { name: 1 } } },
+    }),
+    /* Expensive vehicles, sorted by price, without price */
+    Sorted1: define<VehicleDocument>({
+      ...extraConfig,
+      model: 'Vehicle',
+      query: { price: { $gte: 8000 } },
+      select: { _id: 1 },
+      sort: { price: 1 },
+    }),
+    /* Complex query without insert invalidations, without driver */
+    Targeted1: define<VehicleDocument, [Types.ObjectId[]]>({
+      ...extraConfig,
+      model: 'Vehicle',
+      query: (ids) => ({ _id: { $in: ids } }),
+      select: { driver: 0 },
+      invalidateOnInsert: false,
+    }),
   // TODO: ADD `filter`-ed query
   // TODO: ADD no-op update/query
-} as const;
+  } as const;
 
-export async function init() {
   const redis = new Redis(6379, '127.0.0.1');
   const mongoose = new sharedMongoose.Mongoose();
-  const mondis = new Mondis({ redis, mongoose, queries: CachedQueryDefinitions });
+  const mondis = new Mondis({ redis, mongoose, queries });
 
   mongoose.plugin(mondis.plugin());
   const Vehicle = mongoose.model('Vehicle', new Schema<VehicleDocument>({
@@ -218,9 +232,10 @@ export async function init() {
 export function mondisTest(
   name: string,
   handler: (context: Awaited<ReturnType<typeof init>>) => unknown,
+  extraConfig: Partial<InputConfig> = {},
 ) {
   it(name, async () => {
-    const context = await init();
+    const context = await init(extraConfig);
     await handler(context);
     const { redis, mongoose } = context;
     await Promise.all([mongoose.disconnect(), redis.disconnect()]);
