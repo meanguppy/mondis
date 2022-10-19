@@ -199,7 +199,6 @@ export async function init(extraConfig: Partial<InputConfig>) {
   const mongoose = new sharedMongoose.Mongoose();
   const mondis = new Mondis({ redis, mongoose, queries });
 
-  mongoose.plugin(mondis.plugin());
   const Vehicle = mongoose.model('Vehicle', new Schema<VehicleDocument>({
     kind: { type: String },
     driver: { type: Schema.Types.ObjectId, ref: 'Driver' },

@@ -111,14 +111,13 @@ class Mondis<Q = {}> {
   readonly queries: CachedQueryMap<Q>;
 
   constructor(config: MondisConfiguration<Q> = {}) {
-    this.init(config);
     this.queries = buildCachedQueryMap(this, config.queries);
     this.invalidator = new InvalidationHandler(this);
     this.rehydrator = new RehydrationHandler(this);
+    this.init(config);
   }
 
   init(clients: { redis?: Redis, mongoose?: Mongoose }) {
-    // TODO: add warning if mongoose already contains schemas (before plugin could be attached)
     const { redis, mongoose } = clients;
     if (redis) {
       Object.entries(commands).forEach(([name, conf]) => {
@@ -126,11 +125,18 @@ class Mondis<Q = {}> {
       });
       this._redis = redis;
     }
-    if (mongoose) this._mongoose = mongoose;
-  }
-
-  plugin() {
-    return bindPlugin(this.invalidator);
+    if (mongoose) {
+      const modelCount = Object.keys(mongoose.models).length;
+      if (modelCount > 0) {
+        // TODO: allow manual override with schema config?
+        throw Error(
+          'The Mongoose instance provided already contains registered models. '
+          + 'Ensure mondis is constructed before registering any schemas.',
+        );
+      }
+      mongoose.plugin(bindPlugin(this.invalidator));
+      this._mongoose = mongoose;
+    }
   }
 
   async rehydrate(keys?: string[]) {
