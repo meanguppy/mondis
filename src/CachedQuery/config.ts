@@ -72,7 +72,7 @@ function selectPopulations(select: QueryProjection, populate: InputPopulation) {
   };
 }
 
-export function parseConfig<
+export function defineCQ<
   T extends HasObjectId,
   P extends unknown[] = never,
 >(config: InputConfig<P>): CachedQueryConfig<T, P> {

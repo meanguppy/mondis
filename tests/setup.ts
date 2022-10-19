@@ -1,7 +1,7 @@
 import sharedMongoose, { Schema } from 'mongoose';
 import type { Model, Types } from 'mongoose';
 import Redis from 'ioredis';
-import { InputConfig, parseConfig as define } from '../src/CachedQuery/config';
+import { defineCQ, type InputConfig } from '../src/CachedQuery/config';
 import Mondis from '../src/mondis';
 
 export type VehicleDocument = {
@@ -104,63 +104,63 @@ export type MondisTestInstance = Awaited<ReturnType<typeof init>>['mondis'];
 export async function init(extraConfig: Partial<InputConfig>) {
   const queries = {
   /* All cars */
-    Static1: define<VehicleDocument>({
+    Static1: defineCQ<VehicleDocument>({
       ...extraConfig,
       model: 'Vehicle',
       query: { kind: 'car' },
       select: { _id: 1 },
     }),
     /* Expensive vehicles, with price */
-    Static2: define<VehicleDocument>({
+    Static2: defineCQ<VehicleDocument>({
       ...extraConfig,
       model: 'Vehicle',
       query: { price: { $gte: 8000 } },
       select: { _id: 1, price: 1 },
     }),
     /* Vehicles by kind, with price */
-    Dynamic1: define<VehicleDocument, [string]>({
+    Dynamic1: defineCQ<VehicleDocument, [string]>({
       ...extraConfig,
       model: 'Vehicle',
       query: (kind) => ({ kind }),
       select: { _id: 1, price: 1 },
     }),
     /* Vehicles by route, with routes */
-    Dynamic2: define<VehicleDocument, [string]>({
+    Dynamic2: defineCQ<VehicleDocument, [string]>({
       ...extraConfig,
       model: 'Vehicle',
       query: (route) => ({ routes: route }),
       select: { _id: 1, routes: 1 },
     }),
     /* Vehicles by driver, that have no routes, with driver and kind */
-    Dynamic3: define<VehicleDocument, [Types.ObjectId]>({
+    Dynamic3: defineCQ<VehicleDocument, [Types.ObjectId]>({
       ...extraConfig,
       model: 'Vehicle',
       query: (driver) => ({ driver, routes: { $size: 0 } }),
       select: { _id: 1, driver: 1, kind: 1 },
     }),
     /* Vehicles of kinds, with kind */
-    Complex1: define<VehicleDocument, [string[]]>({
+    Complex1: defineCQ<VehicleDocument, [string[]]>({
       ...extraConfig,
       model: 'Vehicle',
       query: (kinds) => ({ kind: { $in: kinds } }),
       select: { _id: 1, kind: 1 },
     }),
     /* Vehicles over price, with price */
-    Complex2: define<VehicleDocument, [number]>({
+    Complex2: defineCQ<VehicleDocument, [number]>({
       ...extraConfig,
       model: 'Vehicle',
       query: (minPrice) => ({ price: { $gte: minPrice } }),
       select: { _id: 1, price: 1 },
     }),
     /* Vehicle by id, without driver */
-    Unique1: define<VehicleDocument, [Types.ObjectId]>({
+    Unique1: defineCQ<VehicleDocument, [Types.ObjectId]>({
       ...extraConfig,
       model: 'Vehicle',
       query: (_id) => ({ _id }),
       unique: true,
     }),
     /* All vehicles, with full driver */
-    Populated1: define<VehicleDocument>({
+    Populated1: defineCQ<VehicleDocument>({
       ...extraConfig,
       model: 'Vehicle',
       query: {},
@@ -168,7 +168,7 @@ export async function init(extraConfig: Partial<InputConfig>) {
       populate: { driver: { model: 'Driver' } },
     }),
     /* All vehicles, with driver name only */
-    Populated2: define<VehicleDocument>({
+    Populated2: defineCQ<VehicleDocument>({
       ...extraConfig,
       model: 'Vehicle',
       query: {},
@@ -176,7 +176,7 @@ export async function init(extraConfig: Partial<InputConfig>) {
       populate: { driver: { model: 'Driver', select: { name: 1 } } },
     }),
     /* Expensive vehicles, sorted by price, without price */
-    Sorted1: define<VehicleDocument>({
+    Sorted1: defineCQ<VehicleDocument>({
       ...extraConfig,
       model: 'Vehicle',
       query: { price: { $gte: 8000 } },
@@ -184,7 +184,7 @@ export async function init(extraConfig: Partial<InputConfig>) {
       sort: { price: 1 },
     }),
     /* Complex query without insert invalidations, without driver */
-    Targeted1: define<VehicleDocument, [Types.ObjectId[]]>({
+    Targeted1: defineCQ<VehicleDocument, [Types.ObjectId[]]>({
       ...extraConfig,
       model: 'Vehicle',
       query: (ids) => ({ _id: { $in: ids } }),

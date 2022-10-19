@@ -2,6 +2,7 @@
   "extends": "@tsconfig/node16-strictest/tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
+    "noEmit": true,
     "declaration": true,
     "declarationMap": true,
   },
