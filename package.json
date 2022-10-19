@@ -1,16 +1,67 @@
 {
-  "name": "cached-query",
-  "version": "1.0.0",
-  "description": "",
-  "main": "dist/index.js",
-  "scripts": {
-    "tsc": "tsc",
-    "lint": "eslint src/**/*.ts",
-    "test": "jest --runInBand"
+  "name": "@meanguppy/mondis",
+  "version": "1.0.0-beta.0",
+  "description": "Combine mongoose and redis to cache parameterized queries, invalidation included.",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/types/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/types/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    }
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "types": "./dist/cjs/types/index.d.ts",
+  "main": "./dist/cjs/index.js",
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "test": "jest --runInBand",
+    "lint": "eslint ./src/**/*.ts",
+    "clean": "rm -rf ./dist",
+    "build": "npm run clean && npm run build:esm && npm run build:cjs",
+    "build:esm": "tsc -p ./tsconfig.esm.json",
+    "build:cjs": "tsc -p ./tsconfig.cjs.json",
+    "semantic-release": "semantic-release",
+    "prepack": "npm run build"
+  },
+  "release": {
+    "branches": [
+      "main"
+    ]
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/meanguppy/mondis.git"
+  },
+  "keywords": [
+    "mongoose",
+    "mongodb",
+    "mongo",
+    "redis",
+    "ioredis",
+    "cache",
+    "query",
+    "queries",
+    "invalidate",
+    "invalidation",
+    "plugin",
+    "node",
+    "nodejs",
+    "typescript",
+    "ts",
+    "esm",
+    "cjs"
+  ],
+  "author": "Joel Nuesch",
+  "license": "MIT",
   "devDependencies": {
     "@tsconfig/node16-strictest": "^1.0.3",
     "@types/jest": "^29.0.0",
@@ -21,6 +72,7 @@
     "eslint-config-airbnb-typescript": "^17.0.0",
     "eslint-plugin-import": "^2.26.0",
     "jest": "^28.0.8",
+    "semantic-release": "^19.0.5",
     "ts-jest": "^28.0.8",
     "typescript": "^4.8.2"
   },
