@@ -23,6 +23,7 @@ export default class RehydrationHandler {
     if (!keys.length) return;
 
     const promises = keys.map(async (key) => {
+      // TODO: try/catch and add logger for failures
       const { hash, params } = parseCacheKey(key);
       const cachedQuery = this.findCachedQuery(hash);
       if (!cachedQuery || !cachedQuery.config.rehydrate) return;
@@ -34,7 +35,7 @@ export default class RehydrationHandler {
       });
     });
 
-    await Promise.all(promises);
+    await Promise.allSettled(promises);
   }
 
   private findCachedQuery(hash: string) {

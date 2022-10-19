@@ -4,6 +4,7 @@ import type { Mongoose } from 'mongoose';
 import type { CachedQueryConfig } from './CachedQuery/config';
 import CachedQuery from './CachedQuery';
 import InvalidationHandler from './CachedQuery/invalidation/handler';
+import RehydrationHandler from './CachedQuery/rehydration/handler';
 import bindPlugin from './CachedQuery/invalidation/mongoose-plugin';
 
 declare module 'ioredis' {
@@ -104,17 +105,16 @@ function buildCachedQueryMap<Q>(mondis: Mondis, input: unknown) {
 
 class Mondis<Q = {}> {
   private _redis?: Redis;
-
   private _mongoose?: Mongoose;
-
   readonly invalidator: InvalidationHandler;
-
+  readonly rehydrator: RehydrationHandler;
   readonly queries: CachedQueryMap<Q>;
 
   constructor(config: MondisConfiguration<Q> = {}) {
     this.init(config);
     this.queries = buildCachedQueryMap(this, config.queries);
     this.invalidator = new InvalidationHandler(this);
+    this.rehydrator = new RehydrationHandler(this);
   }
 
   init(clients: { redis?: Redis, mongoose?: Mongoose }) {
@@ -131,6 +131,14 @@ class Mondis<Q = {}> {
 
   plugin() {
     return bindPlugin(this.invalidator);
+  }
+
+  async rehydrate(keys?: string[]) {
+    if (keys === undefined) {
+      keys = [...this.invalidator.keysInvalidated];
+      this.invalidator.keysInvalidated.length = 0;
+    }
+    return this.rehydrator.rehydrate(keys);
   }
 
   get redis() {
