@@ -1,6 +1,6 @@
 {
-  "name": "@meanguppy/mondis",
-  "version": "0.0.0-development",
+  "name": "mondis-cache",
+  "version": "1.0.0",
   "description": "Combine mongoose and redis to cache parameterized queries, invalidation included.",
   "exports": {
     ".": {
@@ -40,7 +40,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/meanguppy/mondis.git"
+    "url": "https://github.com/cboar/mondis.git"
   },
   "keywords": [
     "mongoose",
