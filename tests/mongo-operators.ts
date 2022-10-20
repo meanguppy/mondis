@@ -111,7 +111,30 @@ describe('Mongo update operators', () => {
     });
   });
 
-  it('can build upserted document', () => {
-    buildUpsertedDocument({}, {});
+  it('can build upserted document 1', () => {
+    const built = buildUpsertedDocument({}, {});
+    expect(built).toEqual({});
+  });
+
+  it('can build upserted document 2', () => {
+    const built = buildUpsertedDocument(
+      { hello: 'world', price: { $lt: 500 } },
+      { $inc: { price: 1000 } },
+    );
+    expect(built).toEqual({
+      hello: 'world',
+      price: 1000,
+    });
+  });
+
+  it('can build upserted document 3', () => {
+    const built = buildUpsertedDocument(
+      { hello: { $eq: 'world' } },
+      { $set: { world: 'hi' } },
+    );
+    expect(built).toEqual({
+      hello: 'world',
+      world: 'hi',
+    });
   });
 });

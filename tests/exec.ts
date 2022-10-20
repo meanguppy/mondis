@@ -58,4 +58,20 @@ describe('Exec CachedQueries', () => {
     await execAll(mondis, {});
     await execAll(mondis, {});
   });
+
+  mondisTest('Exec filtered query', async ({ mondis }) => {
+    const { Static2, Dynamic1 } = mondis.queries;
+    await Static2.execWithCount({ filter: (doc) => (doc.price > 2500) });
+    await Dynamic1.count({
+      params: ['car'],
+      filter: (doc) => (doc.price > 2500),
+    });
+  });
+
+  mondisTest('Calculate hash value', ({ mondis, hashMocks }) => {
+    const { Static1, Dynamic1 } = mondis.queries;
+    hashMocks.forEach((spy) => spy.mockRestore());
+    expect(Static1.hash).toBeTruthy();
+    expect(Dynamic1.hash).toBeTruthy();
+  });
 });
