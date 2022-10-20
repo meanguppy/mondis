@@ -1,6 +1,6 @@
 {
   "name": "mondis-cache",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Combine mongoose and redis to cache parameterized queries, invalidation included.",
   "exports": {
     ".": {
