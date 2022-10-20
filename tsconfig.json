@@ -2,10 +2,12 @@
   "extends": "@tsconfig/node16-strictest/tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
-    "moduleResolution": "node",
-    "sourceMap": true,
+    "noEmit": true,
     "declaration": true,
-    "outDir": "./dist",
+    "declarationMap": true,
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts"
+  ]
 }

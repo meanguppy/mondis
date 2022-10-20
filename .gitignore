@@ -1,6 +1,7 @@
 dist/
 node_modules/
+coverage/
 .project
 .mongodb
 start
-CACHE-JS
+NOTES

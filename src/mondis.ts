@@ -1,24 +1,31 @@
 import type Redis from 'ioredis';
-import type { Result, Callback } from 'ioredis';
+import type { Result } from 'ioredis';
 import type { Mongoose } from 'mongoose';
-import type { HasObjectId } from './CachedQuery/types';
-import CachedQuery, { CachedQueryConfig } from './CachedQuery';
-import InvalidationHandler from './CachedQuery/invalidation';
-import bindPlugin from './CachedQuery/mongoosePlugin';
+import type { CachedQueryConfig } from './CachedQuery/config';
+import CachedQuery from './CachedQuery';
+import InvalidationHandler from './CachedQuery/invalidation/handler';
+import RehydrationHandler from './CachedQuery/rehydration/handler';
+import bindPlugin from './CachedQuery/invalidation/mongoose-plugin';
 
 declare module 'ioredis' {
   interface RedisCommander<Context> {
-    expiregt(
-      key: string,
-      ttl: number,
-      callback?: Callback<string>
-    ): Result<string, Context>;
-    delquery(
-      queryKey: string,
-      callback?: Callback<string>
-    ): Result<string, Context>;
+    expiregt(key: string, ttl: number): Result<void, Context>;
+    delQuery(queryKey: string): Result<string[], Context>;
+    delQueriesIn(setKey: string, filterHashes?: string): Result<string[], Context>;
   }
 }
+
+type MondisConfiguration<Q> = {
+  redis?: Redis;
+  mongoose?: Mongoose;
+  queries?: Q;
+};
+
+type CachedQueryMap<Q> = Record<string, CachedQuery> & {
+  [K in keyof Q]: Q[K] extends CachedQueryConfig<infer T, infer P>
+    ? CachedQuery<T, P>
+    : never;
+};
 
 const commands = {
   /**
@@ -35,50 +42,82 @@ const commands = {
       end
     `,
   },
-  /**
-   * Delete-Query:
-   *   Delete a cached query and clean up other keys used for invalidation tracking.
-   */
-  delquery: {
+
+  delQuery: {
     numberOfKeys: 1,
     lua: `
       local qkey = KEYS[1]
-      local depends = redis.call("HGET", qkey, "depends")
-      if depends == false then
+      local docIds = redis.call("HGET", qkey, "O")
+      if docIds == false then
         return 0 end
+      for key in string.gmatch(docIds, "%S+") do
+        redis.call("SREM", "O:"..key, qkey)
+      end
+      local populatedIds = redis.call("HGET", qkey, "P")
+      for key in string.gmatch(populatedIds, "%S+") do
+        redis.call("SREM", "P:"..key, qkey)
+      end
       local allKey = "A:"..string.sub(qkey, 3, 18)
       redis.call("SREM", allKey, qkey)
       redis.call("DEL", qkey)
-      for key in string.gmatch(depends, " ") do
-        redis.call("SREM", "O:"..key, qkey)
-      end
       return 1
+    `,
+  },
+
+  delQueriesIn: {
+    numberOfKeys: 1,
+    lua: `
+      local result = {}
+      local filter = ARGV[1] and ("^Q:"..ARGV[1])
+      local keys = redis.call("SMEMBERS", KEYS[1])
+      for _, qkey in ipairs(keys) do
+        if filter == nil or string.find(qkey, filter) ~= nil then
+          local docIds = redis.call("HGET", qkey, "O")
+          if docIds ~= false then
+            for key in string.gmatch(docIds, "%S+") do
+              redis.call("SREM", "O:"..key, qkey)
+            end
+            local populatedIds = redis.call("HGET", qkey, "P")
+            for key in string.gmatch(populatedIds, "%S+") do
+              redis.call("SREM", "P:"..key, qkey)
+            end
+            local allKey = "A:"..string.sub(qkey, 3, 18)
+            redis.call("SREM", allKey, qkey)
+            redis.call("DEL", qkey)
+            table.insert(result, qkey)
+          end
+        end
+      end
+      return result
     `,
   },
 };
 
-type MondisConfiguration = {
-  redis?: Redis;
-  mongoose?: Mongoose;
-  // TODO: allow intercepting cache effects for custom handling (aws lambda)
-  // invalidator?: CacheEffectReceiver;
-};
+function buildCachedQueryMap<Q>(mondis: Mondis, input: unknown) {
+  if (!input) return {} as CachedQueryMap<Q>;
+  if (typeof input !== 'object') throw Error('Invalid `queries` object');
+  const constructed = Object.entries(input).map(([name, val]) => {
+    if (!val) throw Error('Invalid CachedQueryConfig'); // TODO: use instanceof
+    return [name, new CachedQuery(mondis, val as CachedQueryConfig)];
+  });
+  return Object.fromEntries(constructed) as CachedQueryMap<Q>;
+}
 
-class Mondis {
+class Mondis<Q = {}> {
   private _redis?: Redis;
-
   private _mongoose?: Mongoose;
+  readonly invalidator: InvalidationHandler;
+  readonly rehydrator: RehydrationHandler;
+  readonly queries: CachedQueryMap<Q>;
 
-  private invalidator: InvalidationHandler;
-
-  readonly lookupCachedQuery = new Map<string, CachedQuery>();
-
-  constructor(config: MondisConfiguration = {}) {
-    this.init(config);
+  constructor(config: MondisConfiguration<Q> = {}) {
+    this.queries = buildCachedQueryMap(this, config.queries);
     this.invalidator = new InvalidationHandler(this);
+    this.rehydrator = new RehydrationHandler(this);
+    this.init(config);
   }
 
-  init(clients: Pick<MondisConfiguration, 'redis' | 'mongoose'>) {
+  init(clients: { redis?: Redis, mongoose?: Mongoose }) {
     const { redis, mongoose } = clients;
     if (redis) {
       Object.entries(commands).forEach(([name, conf]) => {
@@ -86,17 +125,26 @@ class Mondis {
       });
       this._redis = redis;
     }
-    if (mongoose) this._mongoose = mongoose;
+    if (mongoose) {
+      const modelCount = Object.keys(mongoose.models).length;
+      if (modelCount > 0) {
+        // TODO: allow manual override with schema config?
+        throw Error(
+          'The Mongoose instance provided already contains registered models. '
+          + 'Ensure mondis is constructed before registering any schemas.',
+        );
+      }
+      mongoose.plugin(bindPlugin(this.invalidator));
+      this._mongoose = mongoose;
+    }
   }
 
-  plugin() {
-    return bindPlugin(this.invalidator);
-  }
-
-  CachedQuery<T extends HasObjectId, P extends unknown[] = never>(config: CachedQueryConfig<P>) {
-    const cachedQuery = new CachedQuery<T, P>(this, config);
-    this.lookupCachedQuery.set(cachedQuery.hash, cachedQuery as unknown as CachedQuery);
-    return cachedQuery;
+  async rehydrate(keys?: string[]) {
+    if (keys === undefined) {
+      keys = [...this.invalidator.keysInvalidated];
+      this.invalidator.keysInvalidated.length = 0;
+    }
+    return this.rehydrator.rehydrate(keys);
   }
 
   get redis() {
