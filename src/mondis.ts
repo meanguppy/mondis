@@ -10,7 +10,7 @@ import bindPlugin from './CachedQuery/invalidation/mongoose-plugin';
 declare module 'ioredis' {
   interface RedisCommander<Context> {
     expiregt(key: string, ttl: number): Result<void, Context>;
-    delQuery(queryKey: string): Result<string[], Context>;
+    delQuery(queryKey: string): Result<0 | 1, Context>;
     delQueriesIn(setKey: string, filterHashes?: string): Result<string[], Context>;
   }
 }

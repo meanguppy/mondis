@@ -67,21 +67,24 @@ export default class InvalidationHandler {
     const { keys, sets } = collected;
     if ((!keys || !keys.length) && (!sets || !sets.length)) return;
 
-    const pipeline = this.context.redis.pipeline();
+    const { redis } = this.context;
+    const promises: Promise<string[] | 0 | 1>[] = [];
     if (keys && keys.length) {
-      keys.forEach((key) => pipeline.delQuery(key));
+      promises.push(...keys.map((key) => redis.delQuery(key)));
     }
     if (sets && sets.length) {
-      sets.forEach(({ set, filter }) => pipeline.delQueriesIn(set, filter));
+      promises.push(...sets.map(({ set, filter }) => redis.delQueriesIn(set, filter)));
     }
-    const result = await pipeline.exec();
+    const result = await Promise.allSettled(promises);
+
     const { keysInvalidated } = this;
-    result?.forEach(([err, res], idx) => {
-      if (err) return;
+    result.forEach((settled, idx) => {
+      if (settled.status === 'rejected') return;
+      const res = settled.value;
       if (res === 1) {
         keysInvalidated.push(keys![idx]!);
       } else if (Array.isArray(res) && res.length) {
-        keysInvalidated.push(...(res as string[]));
+        keysInvalidated.push(...res);
       }
     });
   }
