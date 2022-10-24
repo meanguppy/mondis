@@ -1,9 +1,9 @@
-import type { CollectedInvalidations } from '../src/CachedQuery/invalidation/core';
 import { mondisTest, oid, type ModelMap } from './setup';
 
 type UpdateMap = Record<string, ((map: ModelMap) => Promise<unknown>)>;
 
 const MongooseUpdates: UpdateMap = {
+  /* Insert queries */
   InsertCar: ({ Vehicle }) => (
     Vehicle.create({ _id: oid('A5'), kind: 'car', price: 6000, routes: [] })
   ),
@@ -14,6 +14,7 @@ const MongooseUpdates: UpdateMap = {
     Driver.create({ _id: oid('D5'), name: 'Frank', salary: 51000 })
   ),
 
+  /* Update queries */
   UpdateCarPrice: ({ Vehicle }) => (
     Vehicle.updateOne({ kind: 'car' }, { $inc: { price: 8000 } }).exec()
   ),
@@ -35,10 +36,13 @@ const MongooseUpdates: UpdateMap = {
   UpdateBusRoutes: ({ Vehicle }) => (
     Vehicle.updateOne({ kind: 'bus' }, { $push: { routes: 'B' } }).exec()
   ),
+
+  /* Upsert queries */
   UpsertCarViaPrice: ({ Vehicle }) => (
     Vehicle.updateOne({ kind: 'car', price: 11000 }, { price: 15000 }, { upsert: true }).exec()
   ),
 
+  /* Remove queries */
   RemoveCar: ({ Vehicle }) => (
     Vehicle.deleteOne({ kind: 'car' }).exec()
   ),
@@ -51,14 +55,14 @@ const MongooseUpdates: UpdateMap = {
 };
 
 Object.entries(MongooseUpdates).forEach(([name, execUpdate]) => {
-  mondisTest(name, async ({ mondis, models }) => {
-    jest.spyOn(mondis.invalidator, 'doInvalidations').mockImplementation((collected: CollectedInvalidations) => {
-      collected.keys?.sort((a, b) => (a > b ? 1 : -1));
-      collected.sets?.sort((a, b) => (a > b ? 1 : -1));
-      expect(collected).toMatchSnapshot();
-      return Promise.resolve();
-    });
-    await execUpdate(models);
+  mondisTest(name, async (ctx) => {
+    const spy = jest.spyOn(ctx.mondis.invalidator, 'doInvalidations');
+    await execUpdate(ctx.models);
+    expect(spy).toBeCalledTimes(1);
+    const [collected] = spy.mock.lastCall;
+    collected.keys?.sort((a, b) => (a > b ? 1 : -1));
+    collected.sets?.sort((a, b) => (a > b ? 1 : -1));
+    expect(collected).toMatchSnapshot();
   });
 });
 

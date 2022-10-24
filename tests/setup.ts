@@ -1,6 +1,7 @@
 import sharedMongoose, { Schema } from 'mongoose';
 import type { Model, Types } from 'mongoose';
 import Redis from 'ioredis';
+import { deserialize } from 'bson';
 import { defineCQ, type InputConfig } from '../src/CachedQuery/config';
 import Mondis from '../src/mondis';
 
@@ -142,13 +143,9 @@ export async function init(extraConfig: Partial<InputConfig>) {
       select: { driver: 0 },
       invalidateOnInsert: false,
     }),
-  // TODO: ADD `filter`-ed query
-  // TODO: ADD no-op update/query
   } as const;
 
-  const redis = new Redis.Cluster([
-    { host: '127.0.0.1', port: 30001 },
-  ]);
+  const redis = new Redis.Cluster([{ host: '127.0.0.1', port: 30001 }]);
   const mongoose = new sharedMongoose.Mongoose();
   const mondis = new Mondis({ redis, mongoose, queries });
 
@@ -169,17 +166,72 @@ export async function init(extraConfig: Partial<InputConfig>) {
     hashMocks.push(jest.spyOn(cachedQuery, 'hash', 'get').mockReturnValue(fakeHash));
   });
 
-  await mongoose.connect('mongodb://localhost/testing');
-  await Promise.all([
-    redis.flushall(),
-    mongoose.connection.db.dropDatabase(),
-  ]);
-  await Promise.all([
-    Vehicle.insertMany(Vehicles),
-    Driver.insertMany(Drivers),
-  ]);
+  async function execAll(opts: { skip?: number, limit?: number, skipCache?: boolean }) {
+    const { queries: q } = mondis;
+    await Promise.all([
+      q.Static1.execWithCount({ ...opts }),
+      q.Static2.execWithCount({ ...opts }),
+      q.Dynamic1.execWithCount({ ...opts, params: ['truck'] }),
+      q.Dynamic2.execWithCount({ ...opts, params: ['A'] }),
+      q.Dynamic3.execWithCount({ ...opts, params: [oid('D2')] }),
+      q.Complex1.execWithCount({ ...opts, params: [['car', 'bus']] }),
+      q.Complex2.execWithCount({ ...opts, params: [5000] }),
+      q.Unique1.execOne([oid('A4')]),
+      q.Populated1.execWithCount({ ...opts }),
+      q.Populated2.execWithCount({ ...opts }),
+      q.Sorted1.execWithCount({ ...opts }),
+      q.Targeted1.execWithCount({ ...opts, params: [[oid('B1'), oid('B2')]] }),
+    ]);
+  }
 
-  return { mondis, models: { Vehicle, Driver }, mongoose, redis, hashMocks } as const;
+  async function expectRedisSnapshot(keyPattern = '*') {
+    const all = await Promise.all(
+      redis.nodes('all').map((node) => node.keys(keyPattern)),
+    );
+    const flat = all.flat().sort((a, b) => (a > b ? 1 : -1));
+    const entries = await Promise.all(flat.map(async (key) => {
+      let value: unknown;
+      if (key.startsWith('Q:')) {
+        const data = await redis.hgetBuffer(key, 'V');
+        const count = await redis.hget(key, 'N');
+        value = {
+          count: count ? parseInt(count, 10) : null,
+          data: data ? Object.values(deserialize(data)) : null,
+        };
+      } else {
+        value = await redis.smembers(key);
+      }
+      return [key, value];
+    }));
+    expect(Object.fromEntries(entries)).toMatchSnapshot();
+  }
+
+  async function setupData() {
+    await Promise.all([
+      mongoose.connect('mongodb://localhost/testing'),
+      new Promise((res) => { redis.on('ready', res); }),
+    ]);
+    await Promise.allSettled([
+      mongoose.connection.db.dropDatabase(),
+      ...redis.nodes('all').map((node) => node.flushall()),
+    ]);
+    await Promise.all([
+      Vehicle.insertMany(Vehicles),
+      Driver.insertMany(Drivers),
+    ]);
+  }
+
+  await setupData();
+
+  return {
+    mondis,
+    models: { Vehicle, Driver },
+    mongoose,
+    redis,
+    execAll,
+    expectRedisSnapshot,
+    hashMocks,
+  } as const;
 }
 
 export function mondisTest(
