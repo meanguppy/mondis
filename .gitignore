@@ -1,7 +1,5 @@
 dist/
 node_modules/
 coverage/
+dev/
 .project
-.mongodb
-start
-NOTES
