@@ -1,5 +1,4 @@
-import type Redis from 'ioredis';
-import type { Result } from 'ioredis';
+import type { Redis, Cluster, Result } from 'ioredis';
 import type { Mongoose } from 'mongoose';
 import type { CachedQueryConfig } from './CachedQuery/config';
 import CachedQuery from './CachedQuery';
@@ -16,7 +15,7 @@ declare module 'ioredis' {
 }
 
 type MondisConfiguration<Q> = {
-  redis?: Redis;
+  redis?: Redis | Cluster;
   mongoose?: Mongoose;
   queries?: Q;
 };
@@ -42,55 +41,6 @@ const commands = {
       end
     `,
   },
-
-  delQuery: {
-    numberOfKeys: 1,
-    lua: `
-      local qkey = KEYS[1]
-      local docIds = redis.call("HGET", qkey, "O")
-      if docIds == false then
-        return 0 end
-      for key in string.gmatch(docIds, "%S+") do
-        redis.call("SREM", "O:"..key, qkey)
-      end
-      local populatedIds = redis.call("HGET", qkey, "P")
-      for key in string.gmatch(populatedIds, "%S+") do
-        redis.call("SREM", "P:"..key, qkey)
-      end
-      local allKey = "A:"..string.sub(qkey, 3, 18)
-      redis.call("SREM", allKey, qkey)
-      redis.call("DEL", qkey)
-      return 1
-    `,
-  },
-
-  delQueriesIn: {
-    numberOfKeys: 1,
-    lua: `
-      local result = {}
-      local filter = ARGV[1] and ("^Q:"..ARGV[1])
-      local keys = redis.call("SMEMBERS", KEYS[1])
-      for _, qkey in ipairs(keys) do
-        if filter == nil or string.find(qkey, filter) ~= nil then
-          local docIds = redis.call("HGET", qkey, "O")
-          if docIds ~= false then
-            for key in string.gmatch(docIds, "%S+") do
-              redis.call("SREM", "O:"..key, qkey)
-            end
-            local populatedIds = redis.call("HGET", qkey, "P")
-            for key in string.gmatch(populatedIds, "%S+") do
-              redis.call("SREM", "P:"..key, qkey)
-            end
-            local allKey = "A:"..string.sub(qkey, 3, 18)
-            redis.call("SREM", allKey, qkey)
-            redis.call("DEL", qkey)
-            table.insert(result, qkey)
-          end
-        end
-      end
-      return result
-    `,
-  },
 };
 
 function buildCachedQueryMap<Q>(mondis: Mondis, input: unknown) {
@@ -104,7 +54,7 @@ function buildCachedQueryMap<Q>(mondis: Mondis, input: unknown) {
 }
 
 class Mondis<Q = {}> {
-  private _redis?: Redis;
+  private _redis?: Redis | Cluster;
   private _mongoose?: Mongoose;
   readonly invalidator: InvalidationHandler;
   readonly rehydrator: RehydrationHandler;
@@ -117,7 +67,7 @@ class Mondis<Q = {}> {
     this.init(config);
   }
 
-  init(clients: { redis?: Redis, mongoose?: Mongoose }) {
+  init(clients: { redis?: Redis | Cluster, mongoose?: Mongoose }) {
     const { redis, mongoose } = clients;
     if (redis) {
       Object.entries(commands).forEach(([name, conf]) => {

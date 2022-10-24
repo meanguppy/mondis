@@ -1,224 +1,400 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`InsertCar 1`] = `
-Object {
-  "keys": Array [
-    "Q:Dynamic1________[\\"car\\"]",
+exports[`InsertCar: Invalidation targets 1`] = `
+{
+  "keys": [
+    "Q:Dynamic1________["car"]",
     "Q:Dynamic3________[null]",
     "Q:Populated1______[]",
     "Q:Populated2______[]",
     "Q:Static1_________[]",
   ],
-  "sets": Array [
-    Object {
+  "sets": [
+    {
       "set": "A:Complex2________",
     },
-    Object {
+    {
       "set": "A:Complex1________",
     },
-    Object {
+    {
       "set": "A:Dynamic2________",
     },
   ],
 }
 `;
 
-exports[`InsertDriver 1`] = `
-Object {
-  "keys": Array [],
-  "sets": Array [],
+exports[`InsertCar: Redis keys Q:* 1`] = `
+[
+  "Q:Dynamic1________["truck"]",
+  "Q:Dynamic3________[{"$oid":"0000000000000000000000d2"}]",
+  "Q:Sorted1_________[]",
+  "Q:Static2_________[]",
+  "Q:Targeted1_______[[{"$oid":"0000000000000000000000b1"},{"$oid":"0000000000000000000000b2"}]]",
+  "Q:Unique1_________[{"$oid":"0000000000000000000000a4"}]",
+]
+`;
+
+exports[`InsertDriver: Invalidation targets 1`] = `
+{
+  "keys": [],
+  "sets": [],
 }
 `;
 
-exports[`InsertTruckWithDriver 1`] = `
-Object {
-  "keys": Array [
-    "Q:Dynamic1________[\\"truck\\"]",
+exports[`InsertDriver: Redis keys Q:* 1`] = `
+[
+  "Q:Complex1________[["car","bus"]]",
+  "Q:Complex2________[5000]",
+  "Q:Dynamic1________["truck"]",
+  "Q:Dynamic2________["A"]",
+  "Q:Dynamic3________[{"$oid":"0000000000000000000000d2"}]",
+  "Q:Populated1______[]",
+  "Q:Populated2______[]",
+  "Q:Sorted1_________[]",
+  "Q:Static1_________[]",
+  "Q:Static2_________[]",
+  "Q:Targeted1_______[[{"$oid":"0000000000000000000000b1"},{"$oid":"0000000000000000000000b2"}]]",
+  "Q:Unique1_________[{"$oid":"0000000000000000000000a4"}]",
+]
+`;
+
+exports[`InsertTruckWithDriver: Invalidation targets 1`] = `
+{
+  "keys": [
+    "Q:Dynamic1________["truck"]",
     "Q:Populated1______[]",
     "Q:Populated2______[]",
     "Q:Sorted1_________[]",
     "Q:Static2_________[]",
   ],
-  "sets": Array [
-    Object {
+  "sets": [
+    {
       "set": "A:Complex2________",
     },
-    Object {
+    {
       "set": "A:Complex1________",
     },
-    Object {
+    {
       "set": "A:Dynamic2________",
     },
   ],
 }
 `;
 
-exports[`RemoveCar 1`] = `
-Object {
-  "sets": Array [
-    Object {
+exports[`InsertTruckWithDriver: Redis keys Q:* 1`] = `
+[
+  "Q:Dynamic3________[{"$oid":"0000000000000000000000d2"}]",
+  "Q:Static1_________[]",
+  "Q:Targeted1_______[[{"$oid":"0000000000000000000000b1"},{"$oid":"0000000000000000000000b2"}]]",
+  "Q:Unique1_________[{"$oid":"0000000000000000000000a4"}]",
+]
+`;
+
+exports[`RemoveCar: Invalidation targets 1`] = `
+{
+  "sets": [
+    {
       "set": "P:0000000000000000000000a1",
     },
-    Object {
+    {
       "set": "O:0000000000000000000000a1",
     },
   ],
 }
 `;
 
-exports[`RemoveHenry 1`] = `
-Object {
-  "sets": Array [
-    Object {
+exports[`RemoveCar: Redis keys Q:* 1`] = `
+[
+  "Q:Complex2________[5000]",
+  "Q:Dynamic1________["truck"]",
+  "Q:Dynamic3________[{"$oid":"0000000000000000000000d2"}]",
+  "Q:Sorted1_________[]",
+  "Q:Static2_________[]",
+  "Q:Targeted1_______[[{"$oid":"0000000000000000000000b1"},{"$oid":"0000000000000000000000b2"}]]",
+  "Q:Unique1_________[{"$oid":"0000000000000000000000a4"}]",
+]
+`;
+
+exports[`RemoveHenry: Invalidation targets 1`] = `
+{
+  "sets": [
+    {
       "set": "P:0000000000000000000000d1",
     },
-    Object {
+    {
       "set": "O:0000000000000000000000d1",
     },
   ],
 }
 `;
 
-exports[`RemoveTruck 1`] = `
-Object {
-  "sets": Array [
-    Object {
+exports[`RemoveHenry: Redis keys Q:* 1`] = `
+[
+  "Q:Complex1________[["car","bus"]]",
+  "Q:Complex2________[5000]",
+  "Q:Dynamic1________["truck"]",
+  "Q:Dynamic2________["A"]",
+  "Q:Dynamic3________[{"$oid":"0000000000000000000000d2"}]",
+  "Q:Sorted1_________[]",
+  "Q:Static1_________[]",
+  "Q:Static2_________[]",
+  "Q:Targeted1_______[[{"$oid":"0000000000000000000000b1"},{"$oid":"0000000000000000000000b2"}]]",
+  "Q:Unique1_________[{"$oid":"0000000000000000000000a4"}]",
+]
+`;
+
+exports[`RemoveTruck: Invalidation targets 1`] = `
+{
+  "sets": [
+    {
       "set": "P:0000000000000000000000b1",
     },
-    Object {
+    {
       "set": "O:0000000000000000000000b1",
     },
   ],
 }
 `;
 
-exports[`UpdateAllPrices 1`] = `
-Object {
-  "keys": Array [
-    "Q:Dynamic1________[\\"bus\\"]",
-    "Q:Dynamic1________[\\"car\\"]",
-    "Q:Dynamic1________[\\"truck\\"]",
+exports[`RemoveTruck: Redis keys Q:* 1`] = `
+[
+  "Q:Complex1________[["car","bus"]]",
+  "Q:Complex2________[5000]",
+  "Q:Dynamic2________["A"]",
+  "Q:Dynamic3________[{"$oid":"0000000000000000000000d2"}]",
+  "Q:Sorted1_________[]",
+  "Q:Static1_________[]",
+  "Q:Static2_________[]",
+  "Q:Unique1_________[{"$oid":"0000000000000000000000a4"}]",
+]
+`;
+
+exports[`UpdateAllPrices: Invalidation targets 1`] = `
+{
+  "keys": [
+    "Q:Dynamic1________["bus"]",
+    "Q:Dynamic1________["car"]",
+    "Q:Dynamic1________["truck"]",
     "Q:Sorted1_________[]",
     "Q:Static2_________[]",
-    "Q:Unique1_________[{\\"$oid\\":\\"0000000000000000000000a1\\"}]",
-    "Q:Unique1_________[{\\"$oid\\":\\"0000000000000000000000a2\\"}]",
-    "Q:Unique1_________[{\\"$oid\\":\\"0000000000000000000000a3\\"}]",
-    "Q:Unique1_________[{\\"$oid\\":\\"0000000000000000000000a4\\"}]",
-    "Q:Unique1_________[{\\"$oid\\":\\"0000000000000000000000b1\\"}]",
-    "Q:Unique1_________[{\\"$oid\\":\\"0000000000000000000000b2\\"}]",
-    "Q:Unique1_________[{\\"$oid\\":\\"0000000000000000000000b3\\"}]",
-    "Q:Unique1_________[{\\"$oid\\":\\"0000000000000000000000b4\\"}]",
-    "Q:Unique1_________[{\\"$oid\\":\\"0000000000000000000000c1\\"}]",
-    "Q:Unique1_________[{\\"$oid\\":\\"0000000000000000000000c2\\"}]",
-    "Q:Unique1_________[{\\"$oid\\":\\"0000000000000000000000c3\\"}]",
+    "Q:Unique1_________[{"$oid":"0000000000000000000000a1"}]",
+    "Q:Unique1_________[{"$oid":"0000000000000000000000a2"}]",
+    "Q:Unique1_________[{"$oid":"0000000000000000000000a3"}]",
+    "Q:Unique1_________[{"$oid":"0000000000000000000000a4"}]",
+    "Q:Unique1_________[{"$oid":"0000000000000000000000b1"}]",
+    "Q:Unique1_________[{"$oid":"0000000000000000000000b2"}]",
+    "Q:Unique1_________[{"$oid":"0000000000000000000000b3"}]",
+    "Q:Unique1_________[{"$oid":"0000000000000000000000b4"}]",
+    "Q:Unique1_________[{"$oid":"0000000000000000000000c1"}]",
+    "Q:Unique1_________[{"$oid":"0000000000000000000000c2"}]",
+    "Q:Unique1_________[{"$oid":"0000000000000000000000c3"}]",
   ],
-  "sets": Array [
-    Object {
+  "sets": [
+    {
       "set": "A:Targeted1_______",
     },
-    Object {
+    {
       "set": "A:Complex2________",
     },
   ],
 }
 `;
 
-exports[`UpdateBusRoutes 1`] = `
-Object {
-  "keys": Array [
+exports[`UpdateAllPrices: Redis keys Q:* 1`] = `
+[
+  "Q:Complex1________[["car","bus"]]",
+  "Q:Dynamic2________["A"]",
+  "Q:Dynamic3________[{"$oid":"0000000000000000000000d2"}]",
+  "Q:Populated1______[]",
+  "Q:Populated2______[]",
+  "Q:Static1_________[]",
+]
+`;
+
+exports[`UpdateBusRoutes: Invalidation targets 1`] = `
+{
+  "keys": [
     "Q:Dynamic3________[null]",
-    "Q:Unique1_________[{\\"$oid\\":\\"0000000000000000000000c1\\"}]",
+    "Q:Unique1_________[{"$oid":"0000000000000000000000c1"}]",
   ],
-  "sets": Array [
-    Object {
+  "sets": [
+    {
       "set": "A:Targeted1_______",
     },
-    Object {
+    {
       "set": "A:Dynamic2________",
     },
   ],
 }
 `;
 
-exports[`UpdateCarDriver 1`] = `
-Object {
-  "keys": Array [
+exports[`UpdateBusRoutes: Redis keys Q:* 1`] = `
+[
+  "Q:Complex1________[["car","bus"]]",
+  "Q:Complex2________[5000]",
+  "Q:Dynamic1________["truck"]",
+  "Q:Dynamic3________[{"$oid":"0000000000000000000000d2"}]",
+  "Q:Populated1______[]",
+  "Q:Populated2______[]",
+  "Q:Sorted1_________[]",
+  "Q:Static1_________[]",
+  "Q:Static2_________[]",
+  "Q:Unique1_________[{"$oid":"0000000000000000000000a4"}]",
+]
+`;
+
+exports[`UpdateCarDriver: Invalidation targets 1`] = `
+{
+  "keys": [
     "Q:Populated1______[]",
     "Q:Populated2______[]",
-    "Q:Unique1_________[{\\"$oid\\":\\"0000000000000000000000a2\\"}]",
+    "Q:Unique1_________[{"$oid":"0000000000000000000000a2"}]",
   ],
-  "sets": Array [],
+  "sets": [],
 }
 `;
 
-exports[`UpdateCarPrice 1`] = `
-Object {
-  "keys": Array [
-    "Q:Dynamic1________[\\"car\\"]",
+exports[`UpdateCarDriver: Redis keys Q:* 1`] = `
+[
+  "Q:Complex1________[["car","bus"]]",
+  "Q:Complex2________[5000]",
+  "Q:Dynamic1________["truck"]",
+  "Q:Dynamic2________["A"]",
+  "Q:Dynamic3________[{"$oid":"0000000000000000000000d2"}]",
+  "Q:Sorted1_________[]",
+  "Q:Static1_________[]",
+  "Q:Static2_________[]",
+  "Q:Targeted1_______[[{"$oid":"0000000000000000000000b1"},{"$oid":"0000000000000000000000b2"}]]",
+  "Q:Unique1_________[{"$oid":"0000000000000000000000a4"}]",
+]
+`;
+
+exports[`UpdateCarPrice: Invalidation targets 1`] = `
+{
+  "keys": [
+    "Q:Dynamic1________["car"]",
     "Q:Sorted1_________[]",
     "Q:Static2_________[]",
-    "Q:Unique1_________[{\\"$oid\\":\\"0000000000000000000000a1\\"}]",
+    "Q:Unique1_________[{"$oid":"0000000000000000000000a1"}]",
   ],
-  "sets": Array [
-    Object {
+  "sets": [
+    {
       "set": "A:Targeted1_______",
     },
-    Object {
+    {
       "set": "A:Complex2________",
     },
   ],
 }
 `;
 
-exports[`UpdateCarToBus 1`] = `
-Object {
-  "keys": Array [
+exports[`UpdateCarPrice: Redis keys Q:* 1`] = `
+[
+  "Q:Complex1________[["car","bus"]]",
+  "Q:Dynamic1________["truck"]",
+  "Q:Dynamic2________["A"]",
+  "Q:Dynamic3________[{"$oid":"0000000000000000000000d2"}]",
+  "Q:Populated1______[]",
+  "Q:Populated2______[]",
+  "Q:Static1_________[]",
+  "Q:Unique1_________[{"$oid":"0000000000000000000000a4"}]",
+]
+`;
+
+exports[`UpdateCarToBus: Invalidation targets 1`] = `
+{
+  "keys": [
     "Q:Static1_________[]",
-    "Q:Unique1_________[{\\"$oid\\":\\"0000000000000000000000a1\\"}]",
+    "Q:Unique1_________[{"$oid":"0000000000000000000000a1"}]",
   ],
-  "sets": Array [
-    Object {
+  "sets": [
+    {
       "set": "A:Targeted1_______",
     },
-    Object {
+    {
       "set": "A:Complex1________",
     },
   ],
 }
 `;
 
-exports[`UpdateHenrySalary 1`] = `
-Object {
-  "keys": Array [],
-  "sets": Array [
-    Object {
-      "filter": "Populated1______",
+exports[`UpdateCarToBus: Redis keys Q:* 1`] = `
+[
+  "Q:Complex2________[5000]",
+  "Q:Dynamic1________["truck"]",
+  "Q:Dynamic2________["A"]",
+  "Q:Dynamic3________[{"$oid":"0000000000000000000000d2"}]",
+  "Q:Populated1______[]",
+  "Q:Populated2______[]",
+  "Q:Sorted1_________[]",
+  "Q:Static2_________[]",
+  "Q:Unique1_________[{"$oid":"0000000000000000000000a4"}]",
+]
+`;
+
+exports[`UpdateHenrySalary: Invalidation targets 1`] = `
+{
+  "keys": [],
+  "sets": [
+    {
+      "filter": "Q:Populated1______",
       "set": "P:0000000000000000000000d1",
     },
   ],
 }
 `;
 
-exports[`UpdateJohnName 1`] = `
-Object {
-  "keys": Array [],
-  "sets": Array [
-    Object {
-      "filter": "Populated2______",
+exports[`UpdateHenrySalary: Redis keys Q:* 1`] = `
+[
+  "Q:Complex1________[["car","bus"]]",
+  "Q:Complex2________[5000]",
+  "Q:Dynamic1________["truck"]",
+  "Q:Dynamic2________["A"]",
+  "Q:Dynamic3________[{"$oid":"0000000000000000000000d2"}]",
+  "Q:Populated2______[]",
+  "Q:Sorted1_________[]",
+  "Q:Static1_________[]",
+  "Q:Static2_________[]",
+  "Q:Targeted1_______[[{"$oid":"0000000000000000000000b1"},{"$oid":"0000000000000000000000b2"}]]",
+  "Q:Unique1_________[{"$oid":"0000000000000000000000a4"}]",
+]
+`;
+
+exports[`UpdateJohnName: Invalidation targets 1`] = `
+{
+  "keys": [],
+  "sets": [
+    {
+      "filter": "Q:Populated2______",
       "set": "P:0000000000000000000000d2",
     },
-    Object {
-      "filter": "Populated1______",
+    {
+      "filter": "Q:Populated1______",
       "set": "P:0000000000000000000000d2",
     },
   ],
 }
 `;
 
-exports[`UpsertCarViaPrice 1`] = `
-Object {
-  "keys": Array [
-    "Q:Dynamic1________[\\"car\\"]",
+exports[`UpdateJohnName: Redis keys Q:* 1`] = `
+[
+  "Q:Complex1________[["car","bus"]]",
+  "Q:Complex2________[5000]",
+  "Q:Dynamic1________["truck"]",
+  "Q:Dynamic2________["A"]",
+  "Q:Dynamic3________[{"$oid":"0000000000000000000000d2"}]",
+  "Q:Sorted1_________[]",
+  "Q:Static1_________[]",
+  "Q:Static2_________[]",
+  "Q:Targeted1_______[[{"$oid":"0000000000000000000000b1"},{"$oid":"0000000000000000000000b2"}]]",
+  "Q:Unique1_________[{"$oid":"0000000000000000000000a4"}]",
+]
+`;
+
+exports[`UpsertCarViaPrice: Invalidation targets 1`] = `
+{
+  "keys": [
+    "Q:Dynamic1________["car"]",
     "Q:Dynamic2________[null]",
     "Q:Populated1______[]",
     "Q:Populated2______[]",
@@ -226,13 +402,23 @@ Object {
     "Q:Static1_________[]",
     "Q:Static2_________[]",
   ],
-  "sets": Array [
-    Object {
+  "sets": [
+    {
       "set": "A:Complex2________",
     },
-    Object {
+    {
       "set": "A:Complex1________",
     },
   ],
 }
+`;
+
+exports[`UpsertCarViaPrice: Redis keys Q:* 1`] = `
+[
+  "Q:Dynamic1________["truck"]",
+  "Q:Dynamic2________["A"]",
+  "Q:Dynamic3________[{"$oid":"0000000000000000000000d2"}]",
+  "Q:Targeted1_______[[{"$oid":"0000000000000000000000b1"},{"$oid":"0000000000000000000000b2"}]]",
+  "Q:Unique1_________[{"$oid":"0000000000000000000000a4"}]",
+]
 `;

@@ -1,62 +1,71 @@
-import { mondisTest, MondisTestInstance, oid } from './setup';
-
-async function execAll(
-  mondis: MondisTestInstance,
-  opts: { skip?: number, limit?: number, skipCache?: boolean },
-) {
-  const q = mondis.queries;
-  await Promise.all([
-    q.Static1.execWithCount({ ...opts }),
-    q.Static2.execWithCount({ ...opts }),
-    q.Dynamic1.execWithCount({ ...opts, params: ['truck'] }),
-    q.Dynamic2.execWithCount({ ...opts, params: ['A'] }),
-    q.Dynamic3.execWithCount({ ...opts, params: [oid('D2')] }),
-    q.Complex1.execWithCount({ ...opts, params: [['car', 'bus']] }),
-    q.Complex2.execWithCount({ ...opts, params: [5000] }),
-    q.Unique1.execOne([oid('A4')]),
-    q.Populated1.execWithCount({ ...opts }),
-    q.Populated2.execWithCount({ ...opts }),
-    q.Sorted1.execWithCount({ ...opts }),
-    q.Targeted1.execWithCount({ ...opts, params: [[oid('B1'), oid('B2')]] }),
-  ]);
-}
+import { mondisTest, oid } from './setup';
 
 describe('Exec CachedQueries', () => {
-  mondisTest('config:{} exec:{}', async ({ mondis }) => {
-    await execAll(mondis, {});
+  mondisTest('config:{} exec:{}', async (ctx) => {
+    await ctx.execAll({});
+    await ctx.expectRedisSnapshot('Q:*');
   });
 
-  mondisTest('config:{} exec:{ skip: 5 }', async ({ mondis }) => {
-    await execAll(mondis, { skip: 5 });
+  mondisTest('config:{} exec:{ skip: 5 }', async (ctx) => {
+    await ctx.execAll({ skip: 5 });
   });
 
-  mondisTest('config:{} exec:{ limit: 3 }', async ({ mondis }) => {
-    await execAll(mondis, { limit: 3 });
+  mondisTest('config:{} exec:{ limit: 3 }', async (ctx) => {
+    await ctx.execAll({ limit: 3 });
   });
 
-  mondisTest('config:{} exec:{ skip: 5, limit: 3 }', async ({ mondis }) => {
-    await execAll(mondis, { skip: 5, limit: 3 });
+  mondisTest('config:{} exec:{ skip: 5, limit: 3 }', async (ctx) => {
+    await ctx.execAll({ skip: 5, limit: 3 });
   });
 
-  mondisTest('config:{ cacheCount: 3 } exec:{}', async ({ mondis }) => {
-    await execAll(mondis, {});
+  mondisTest('config:{ cacheCount: 3 } exec:{}', async (ctx) => {
+    await ctx.execAll({});
+    await ctx.expectRedisSnapshot('Q:*');
   }, { cacheCount: 3 });
 
-  mondisTest('config:{ cacheCount: 3 } exec:{ skip: 5 }', async ({ mondis }) => {
-    await execAll(mondis, { skip: 5 });
+  mondisTest('config:{ cacheCount: 3 } exec:{ skip: 5 }', async (ctx) => {
+    await ctx.execAll({ skip: 5 });
   }, { cacheCount: 3 });
 
-  mondisTest('config:{ cacheCount: 3 } exec:{ limit: 3 }', async ({ mondis }) => {
-    await execAll(mondis, { limit: 3 });
+  mondisTest('config:{ cacheCount: 3 } exec:{ limit: 3 }', async (ctx) => {
+    await ctx.execAll({ limit: 3 });
+    await new Promise((res) => {
+      setTimeout(res, 500);
+    });
+    await ctx.expectRedisSnapshot('Q:*');
   }, { cacheCount: 3 });
 
-  mondisTest('config:{ cacheCount: 3 } exec:{ skip: 5, limit: 3 }', async ({ mondis }) => {
-    await execAll(mondis, { skip: 5, limit: 3 });
+  mondisTest('config:{ cacheCount: 3 } exec:{ skip: 5, limit: 3 }', async (ctx) => {
+    await ctx.execAll({ skip: 5, limit: 3 });
   }, { cacheCount: 3 });
 
-  mondisTest('Exec all twice', async ({ mondis }) => {
-    await execAll(mondis, {});
-    await execAll(mondis, {});
+  mondisTest('Exec all twice, config:{}', async (ctx) => {
+    await ctx.execAll({});
+    await ctx.execAll({});
+  });
+
+  mondisTest('Exec all twice, config:{ cacheCount: 3 }', async (ctx) => {
+    await ctx.execAll({});
+    await ctx.execAll({});
+  }, { cacheCount: 3 });
+
+  mondisTest('Only count queries', async (ctx) => {
+    const { queries: q } = ctx.mondis;
+    await Promise.all([
+      q.Static1.count(),
+      q.Static2.count(),
+      q.Dynamic1.count({ params: ['truck'] }),
+      q.Dynamic2.count({ params: ['A'] }),
+      q.Dynamic3.count({ params: [oid('D2')] }),
+      q.Complex1.count({ params: [['car', 'bus']] }),
+      q.Complex2.count({ params: [5000] }),
+      q.Unique1.count([oid('A4')]),
+      q.Populated1.count(),
+      q.Populated2.count(),
+      q.Sorted1.count(),
+      q.Targeted1.count({ params: [[oid('B1'), oid('B2')]] }),
+    ]);
+    await ctx.expectRedisSnapshot('Q:*');
   });
 
   mondisTest('Exec filtered query', async ({ mondis }) => {

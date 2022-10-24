@@ -65,28 +65,45 @@ export default class InvalidationHandler {
 
   async doInvalidations(collected: CollectedInvalidations) {
     const { keys, sets } = collected;
-    if ((!keys || !keys.length) && (!sets || !sets.length)) return;
-
-    const { redis } = this.context;
-    const promises: Promise<string[] | 0 | 1>[] = [];
+    const promises: Promise<void>[] = [];
     if (keys && keys.length) {
-      promises.push(...keys.map((key) => redis.delQuery(key)));
+      promises.push(...keys.map((key) => this.delQuery(key)));
     }
     if (sets && sets.length) {
-      promises.push(...sets.map(({ set, filter }) => redis.delQueriesIn(set, filter)));
+      promises.push(...sets.map(({ set, filter }) => this.delQueriesIn(set, filter)));
     }
-    const result = await Promise.allSettled(promises);
+    await Promise.allSettled(promises);
+  }
 
-    const { keysInvalidated } = this;
-    result.forEach((settled, idx) => {
-      if (settled.status === 'rejected') return;
-      const res = settled.value;
-      if (res === 1) {
-        keysInvalidated.push(keys![idx]!);
-      } else if (Array.isArray(res) && res.length) {
-        keysInvalidated.push(...res);
-      }
+  private async delQuery(qkey: string) {
+    const { redis } = this.context;
+    const [[, docIds], [, populatedIds]] = await redis.multi()
+      .hget(qkey, 'O')
+      .hget(qkey, 'P')
+      .del(qkey)
+      .exec() as [[unknown, string | null], [unknown, string | null]];
+    if (!docIds) return;
+    this.keysInvalidated.push(qkey);
+    const allKey = `A:${qkey.substring(2, 18)}`;
+    const promises = [
+      redis.srem(allKey, qkey),
+    ];
+    docIds.split(' ').forEach((id) => {
+      promises.push(redis.srem(`O:${id}`, qkey));
     });
+    populatedIds?.split(' ').forEach((id) => {
+      promises.push(redis.srem(`P:${id}`, qkey));
+    });
+    await Promise.all(promises);
+  }
+
+  private async delQueriesIn(setKey: string, filter?: string) {
+    const { redis } = this.context;
+    let keys = await redis.smembers(setKey);
+    if (filter) {
+      keys = keys.filter((key) => key.startsWith(filter));
+    }
+    await Promise.all(keys.map((key) => this.delQuery(key)));
   }
 
   private getInvalidationInfos(model: string) {
