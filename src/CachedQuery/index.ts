@@ -89,9 +89,6 @@ class CachedQuery<
     return this.buildQuery(full).countDocuments();
   }
 
-  /**
-   * Stringifies the result object and stores it in cache.
-   */
   private async serializeAndCache(result: T[], cacheKey: string) {
     const { redis } = this.context;
     const { hash, config: { populate, expiry } } = this;
@@ -100,24 +97,31 @@ class CachedQuery<
       const docIds = result.map((doc) => String(doc._id));
       const populatedIds = collectPopulatedIds(result, populate);
       const allKey = `A:${hash}`;
-      // Cache result, and create keys used for tracking invalidations
-      const multi = redis.multi();
-      multi.del(cacheKey);
-      multi.hset(cacheKey, 'V', bson);
-      multi.hset(cacheKey, 'O', docIds.join(' '));
-      multi.hset(cacheKey, 'P', populatedIds.join(' '));
-      multi.sadd(allKey, cacheKey);
-      multi.expiregt(cacheKey, expiry);
-      multi.expiregt(allKey, expiry);
-      docIds.forEach((id) => {
-        multi.sadd(`O:${id}`, cacheKey);
-        multi.expiregt(`O:${id}`, expiry);
-      });
-      populatedIds.forEach((id) => {
-        multi.sadd(`P:${id}`, cacheKey);
-        multi.expiregt(`P:${id}`, expiry);
-      });
-      await multi.exec();
+      await Promise.all([
+        redis.multi()
+          .del(cacheKey)
+          .hset(cacheKey, 'V', bson)
+          .hset(cacheKey, 'O', docIds.join(' '))
+          .hset(cacheKey, 'P', populatedIds.join(' '))
+          .expiregt(cacheKey, expiry)
+          .exec(),
+        redis.pipeline()
+          .sadd(allKey, cacheKey)
+          .expiregt(allKey, expiry)
+          .exec(),
+        ...docIds.flatMap((id) => (
+          redis.pipeline()
+            .sadd(`O:${id}`, cacheKey)
+            .expiregt(`O:${id}`, expiry)
+            .exec()
+        )),
+        ...populatedIds.flatMap((id) => (
+          redis.pipeline()
+            .sadd(`P:${id}`, cacheKey)
+            .expiregt(`P:${id}`, expiry)
+            .exec()
+        )),
+      ]);
     } catch (err) {
       // logger.warn({ err, tag: 'CACHE_REDIS_SET', cacheKey, result, }, 'Failed to set value');
     }

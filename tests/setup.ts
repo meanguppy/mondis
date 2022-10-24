@@ -146,7 +146,9 @@ export async function init(extraConfig: Partial<InputConfig>) {
   // TODO: ADD no-op update/query
   } as const;
 
-  const redis = new Redis(6379, '127.0.0.1');
+  const redis = new Redis.Cluster([
+    { host: '127.0.0.1', port: 30001 },
+  ]);
   const mongoose = new sharedMongoose.Mongoose();
   const mondis = new Mondis({ redis, mongoose, queries });
 

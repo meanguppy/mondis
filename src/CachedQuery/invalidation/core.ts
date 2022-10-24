@@ -213,7 +213,7 @@ class PopulatedInvalidationInfo {
     const { cachedQuery, selectInclusive, selectPaths } = this;
     const { after } = doc;
     if (wasProjectionModified(selectInclusive, selectPaths, modified)) {
-      return { set: `P:${String(after._id)}`, filter: cachedQuery.hash };
+      return { set: `P:${String(after._id)}`, filter: `Q:${cachedQuery.hash}` };
     }
     return null;
   }
