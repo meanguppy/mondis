@@ -184,26 +184,30 @@ export async function init(extraConfig: Partial<InputConfig>) {
     ]);
   }
 
-  async function expectRedisSnapshot(keyPattern = '*') {
-    const all = await Promise.all(
-      redis.nodes('all').map((node) => node.keys(keyPattern)),
+  async function expectRedisSnapshot(keyPattern = '*', withValues = true) {
+    const promises = await Promise.all(
+      redis.nodes('master').map((node) => node.keys(keyPattern)),
     );
-    const flat = all.flat().sort((a, b) => (a > b ? 1 : -1));
-    const entries = await Promise.all(flat.map(async (key) => {
-      let value: unknown;
-      if (key.startsWith('Q:')) {
-        const data = await redis.hgetBuffer(key, 'V');
-        const count = await redis.hget(key, 'N');
-        value = {
-          count: count ? parseInt(count, 10) : null,
-          data: data ? Object.values(deserialize(data)) : null,
-        };
-      } else {
-        value = await redis.smembers(key);
-      }
-      return [key, value];
-    }));
-    expect(Object.fromEntries(entries)).toMatchSnapshot();
+    const keys = promises.flat().sort((a, b) => (a > b ? 1 : -1));
+    if (withValues) {
+      const entries = await Promise.all(keys.map(async (key) => {
+        let value: unknown;
+        if (key.startsWith('Q:')) {
+          const data = await redis.hgetBuffer(key, 'V');
+          const count = await redis.hget(key, 'N');
+          value = {
+            count: count ? parseInt(count, 10) : null,
+            data: data ? Object.values(deserialize(data)) : null,
+          };
+        } else {
+          value = await redis.smembers(key);
+        }
+        return [key, value];
+      }));
+      expect(Object.fromEntries(entries)).toMatchSnapshot(`Redis content ${keyPattern}`);
+    } else {
+      expect(keys).toMatchSnapshot(`Redis keys ${keyPattern}`);
+    }
   }
 
   async function setupData() {
@@ -211,9 +215,9 @@ export async function init(extraConfig: Partial<InputConfig>) {
       mongoose.connect('mongodb://localhost/testing'),
       new Promise((res) => { redis.on('ready', res); }),
     ]);
-    await Promise.allSettled([
+    await Promise.all([
       mongoose.connection.db.dropDatabase(),
-      ...redis.nodes('all').map((node) => node.flushall()),
+      ...redis.nodes('master').map((node) => node.flushall()),
     ]);
     await Promise.all([
       Vehicle.insertMany(Vehicles),

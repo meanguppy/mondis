@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`Exec CachedQueries Only count queries 1`] = `
+exports[`Exec CachedQueries Only count queries: Redis content Q:* 1`] = `
 {
   "Q:Complex1________[["car","bus"]]": {
     "count": 7,
@@ -53,7 +53,7 @@ exports[`Exec CachedQueries Only count queries 1`] = `
 }
 `;
 
-exports[`Exec CachedQueries config:{ cacheCount: 3 } exec:{ limit: 3 } 1`] = `
+exports[`Exec CachedQueries config:{ cacheCount: 3 } exec:{ limit: 3 }: Redis content Q:* 1`] = `
 {
   "Q:Complex1________[["car","bus"]]": {
     "count": 7,
@@ -270,7 +270,7 @@ exports[`Exec CachedQueries config:{ cacheCount: 3 } exec:{ limit: 3 } 1`] = `
 }
 `;
 
-exports[`Exec CachedQueries config:{ cacheCount: 3 } exec:{} 1`] = `
+exports[`Exec CachedQueries config:{ cacheCount: 3 } exec:{}: Redis content Q:* 1`] = `
 {
   "Q:Complex1________[["car","bus"]]": {
     "count": 7,
@@ -335,7 +335,7 @@ exports[`Exec CachedQueries config:{ cacheCount: 3 } exec:{} 1`] = `
 }
 `;
 
-exports[`Exec CachedQueries config:{} exec:{} 1`] = `
+exports[`Exec CachedQueries config:{} exec:{}: Redis content Q:* 1`] = `
 {
   "Q:Complex1________[["car","bus"]]": {
     "count": 7,

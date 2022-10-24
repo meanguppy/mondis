@@ -56,13 +56,15 @@ const MongooseUpdates: UpdateMap = {
 
 Object.entries(MongooseUpdates).forEach(([name, execUpdate]) => {
   mondisTest(name, async (ctx) => {
+    await ctx.execAll({});
     const spy = jest.spyOn(ctx.mondis.invalidator, 'doInvalidations');
     await execUpdate(ctx.models);
     expect(spy).toBeCalledTimes(1);
     const [collected] = spy.mock.lastCall;
     collected.keys?.sort((a, b) => (a > b ? 1 : -1));
     collected.sets?.sort((a, b) => (a > b ? 1 : -1));
-    expect(collected).toMatchSnapshot();
+    expect(collected).toMatchSnapshot('Invalidation targets');
+    await ctx.expectRedisSnapshot('Q:*', false);
   });
 });
 
