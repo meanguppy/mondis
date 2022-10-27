@@ -1,18 +1,10 @@
-import type { Redis, Cluster, Result } from 'ioredis';
+import type { Redis, Cluster } from 'ioredis';
 import type { Mongoose } from 'mongoose';
 import type { CachedQueryConfig } from './CachedQuery/config';
 import CachedQuery from './CachedQuery';
 import InvalidationHandler from './CachedQuery/invalidation/handler';
 import RehydrationHandler from './CachedQuery/rehydration/handler';
 import bindPlugin from './CachedQuery/invalidation/mongoose-plugin';
-
-declare module 'ioredis' {
-  interface RedisCommander<Context> {
-    expiregt(key: string, ttl: number): Result<void, Context>;
-    delQuery(queryKey: string): Result<0 | 1, Context>;
-    delQueriesIn(setKey: string, filterHashes?: string): Result<string[], Context>;
-  }
-}
 
 type MondisConfiguration<Q> = {
   redis?: Redis | Cluster;
@@ -24,23 +16,6 @@ type CachedQueryMap<Q> = Record<string, CachedQuery> & {
   [K in keyof Q]: Q[K] extends CachedQueryConfig<infer T, infer P>
     ? CachedQuery<T, P>
     : never;
-};
-
-const commands = {
-  /**
-   * Expire-Greater:
-   *   Sets a key's expiry to either the provided TTL or the current one, whichever is greater.
-   */
-  expiregt: {
-    numberOfKeys: 1,
-    lua: `
-      local newTTL = tonumber(ARGV[1])
-      local curTTL = redis.call("TTL", KEYS[1])
-      if newTTL > curTTL then
-        return redis.call("EXPIRE", KEYS[1], newTTL)
-      end
-    `,
-  },
 };
 
 function buildCachedQueryMap<Q>(mondis: Mondis, input: unknown) {
@@ -70,9 +45,6 @@ class Mondis<Q = {}> {
   init(clients: { redis?: Redis | Cluster, mongoose?: Mongoose }) {
     const { redis, mongoose } = clients;
     if (redis) {
-      Object.entries(commands).forEach(([name, conf]) => {
-        redis.defineCommand(name, conf);
-      });
       this._redis = redis;
     }
     if (mongoose) {

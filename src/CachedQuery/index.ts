@@ -108,24 +108,24 @@ class CachedQuery<
         .hset(cacheKey, 'V', bson)
         .hset(cacheKey, 'O', docIds.join(' '))
         .hset(cacheKey, 'P', populatedIds.join(' '))
-        .expiregt(cacheKey, expiry);
+        .expire(cacheKey, expiry, 'GT');
 
       await Promise.all([
         multi.exec(),
         redis.pipeline()
           .sadd(allKey, cacheKey)
-          .expiregt(allKey, expiry)
+          .expire(allKey, expiry, 'GT')
           .exec(),
         ...docIds.flatMap((id) => (
           redis.pipeline()
             .sadd(`O:${id}`, cacheKey)
-            .expiregt(`O:${id}`, expiry)
+            .expire(`O:${id}`, expiry, 'GT')
             .exec()
         )),
         ...populatedIds.flatMap((id) => (
           redis.pipeline()
             .sadd(`P:${id}`, cacheKey)
-            .expiregt(`P:${id}`, expiry)
+            .expire(`P:${id}`, expiry, 'GT')
             .exec()
         )),
       ]);
